@@ -1,0 +1,757 @@
+{% extends 'base.html' %}
+{% block content %}
+<div x-data="analysisApp()" x-init="init()" class="app">
+
+    <!-- ============ HEADER ============ -->
+    <header class="header">
+        <div class="header-left">
+            <h1>آنالیز اقدامات محصولات</h1>
+            <span class="count" x-text="total.toLocaleString() + ' محصول'"></span>
+        </div>
+        <div class="header-right">
+            <div class="search">
+                <input
+                    style="font-family: 'Yekan';"
+                    type="text"
+                    placeholder="جستجوی کد محصول..."
+                    x-model="search"
+                    @keydown.enter="searchOne()"
+                >
+                <button class="btn btn-ghost" @click="searchOne()" :disabled="loading">جست‌وجو</button>
+                <button class="btn btn-ghost" @click="clearSearch()" x-show="searchActive">پاک کردن</button>
+            </div>
+            <button class="btn btn-primary" @click="exportExcel()" :disabled="loading || total === 0">
+                <span x-show="!exporting">خروجی اکسل</span>
+                <span x-show="exporting" x-cloak>در حال استخراج...</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ============ FILTERS ============ -->
+    <section class="filters">
+        <div class="filter">
+            <label>دسته‌بندی</label>
+            <select x-model="filters.category_code" @change="onFilterChange()">
+                <option value="">همه</option>
+                <template x-for="c in categories" :key="c.code">
+                    <option :value="c.code" x-text="c.name"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="filter">
+            <label>سن (ماه)</label>
+            <select x-model="filters.age_in_months" @change="onFilterChange()">
+                <option value="">همه</option>
+                <template x-for="m in [1,2,3,4,5,6]" :key="m">
+                    <option :value="m" x-text="m"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="filter">
+            <label>کامل شده</label>
+            <select x-model="filters.completed" @change="onFilterChange()">
+                <option value="">همه</option>
+                <option value="1">بله</option>
+                <option value="0">خیر</option>
+            </select>
+        </div>
+
+        <div class="filter">
+            <label>کیفیت تخفیف</label>
+            <select x-model="filters.discount_quality" @change="onFilterChange()">
+                <option value="">همه</option>
+                <template x-for="q in discountQualities" :key="q">
+                    <option :value="q" x-text="q"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="filter">
+            <label>تگ</label>
+            <select x-model="filters.status_tag" @change="onFilterChange()">
+                <option value="">همه</option>
+                <template x-for="s in statusTags" :key="s">
+                    <option :value="s" x-text="s"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="filter">
+            <label>اقدام</label>
+            <select x-model="filters.action" @change="onFilterChange()">
+                <option value="">همه</option>
+                <template x-for="a in actions" :key="a">
+                    <option :value="a" x-text="a"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="filter filter-actions">
+            <button class="btn btn-ghost" @click="resetFilters()" :disabled="!hasFilters">حذف همه فیلترها</button>
+        </div>
+    </section>
+
+    <!-- ============ TABLE ============ -->
+    <section class="table-wrap">
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <template x-for="col in columns" :key="col.key">
+                            <th
+                                @click="sortBy(col.key)"
+                                @mouseenter="showTip($event, col.tip)"
+                                @mouseleave="hideTip()"
+                                :class="{ sorted: sort.key === col.key }"
+                            >
+                                <span x-text="col.label"></span>
+                                <span class="sort-ind"
+                                    x-show="sort.key === col.key"
+                                    x-text="sort.dir === 'asc' ? '▲' : '▼'"></span>
+                            </th>
+                        </template>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-if="loading">
+                        <tr><td :colspan="columns.length" class="state">Loading…</td></tr>
+                    </template>
+                    <template x-if="!loading && rows.length === 0">
+                        <tr><td :colspan="columns.length" class="state">هیچ محصولی پیدا نشد</td></tr>
+                    </template>
+                    <template x-for="row in sortedRows" :key="row.product_code">
+                        <tr>
+                            <template x-for="col in columns" :key="col.key">
+                                <td :class="col.cls || ''" x-text="formatCell(row[col.key], col)"></td>
+                            </template>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ============ PAGINATION ============ -->
+        <div class="pagination" x-show="!searchActive && totalPages > 1">
+            <button class="btn btn-ghost" @click="goTo(totalPages)" :disabled="page >= totalPages || loading">آخر »</button>
+            <button class="btn btn-ghost" @click="goTo(page + 1)" :disabled="page >= totalPages || loading">بعدی ›</button>
+            <span class="page-info">
+                صفحه <strong x-text="page"></strong> از <strong x-text="totalPages"></strong>
+            </span>
+            <button class="btn btn-ghost" @click="goTo(page - 1)" :disabled="page === 1 || loading">‹ قبلی</button>
+            <button class="btn btn-ghost" @click="goTo(1)" :disabled="page === 1 || loading">« اول</button>
+        </div>
+    </section>
+
+    <div
+        class="tooltip"
+        x-show="tooltip.visible"
+        x-transition.opacity.duration.120ms
+        :style="`left: ${tooltip.x}px; top: ${tooltip.y}px;`"
+        x-cloak
+        x-text="tooltip.text"
+    ></div>
+
+    <!-- ============ AI FAB ============ -->
+    <button
+        class="ai-fab"
+        @click="aiOpen = !aiOpen"
+        :class="{ 'ai-fab-open': aiOpen }"
+        :aria-label="aiOpen ? 'بستن دستیار' : 'باز کردن دستیار'"
+        type="button"
+    >
+        <svg x-show="!aiOpen" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a5 5 0 0 0-5 5v1H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5z"/>
+            <circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/>
+        </svg>
+        <svg x-show="aiOpen" x-cloak xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+    </button>
+
+    <!-- ============ AI DRAWER ============ -->
+    <aside
+        class="ai-drawer"
+        :class="{ 'ai-drawer-open': aiOpen }"
+        x-cloak
+        dir="rtl"
+        @keydown.escape.window="aiOpen = false"
+    >
+        <header class="ai-drawer-header">
+            <div class="ai-drawer-title">
+                <span class="ai-dot"></span>
+                <h2>دستیار تحلیل</h2>
+            </div>
+            <button class="ai-drawer-close" @click="aiOpen = false" type="button" aria-label="بستن">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </header>
+
+        <!-- ---------- Prompt editor ---------- -->
+        <section class="ai-prompt">
+            <label class="ai-prompt-label">
+                پرامپت (قابل ویرایش)
+                <span class="ai-prompt-hint" x-text="' ' + rowCountForPrompt + ' ردیف آماده ارسال'"></span>
+            </label>
+            <textarea
+                class="ai-prompt-input"
+                x-model="aiPrompt"
+                rows="10"
+                spellcheck="false"
+            ></textarea>
+            <div class="ai-prompt-actions">
+                <button class="btn btn-ghost" @click="resetAiPrompt()" type="button">بازنشانی</button>
+                <button class="btn btn-primary" @click="sendAiPrompt()" :disabled="aiLoading || rowCountForPrompt === 0" type="button">
+                    <span x-show="!aiLoading">ارسال</span>
+                    <span x-show="aiLoading" x-cloak>در حال دریافت…</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ---------- Chat ---------- -->
+        <section class="ai-chat" x-ref="chatScroll">
+            <template x-if="aiMessages.length === 0">
+                <div class="ai-chat-empty">
+                    برای شروع گفتگو روی 'ارسال' کلیک کنید
+                </div>
+            </template>
+
+            <template x-for="(m, i) in aiMessages" :key="i">
+                <div class="ai-msg" :class="m.role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant'">
+                    <div class="ai-msg-bubble">
+                        <template x-if="m.role === 'assistant'">
+                            <span class="ai-msg-text" x-html="renderAssistant(m)"></span>
+                        </template>
+                        <template x-if="m.role === 'user'">
+                            <span class="ai-msg-text" x-text="m.content"></span>
+                        </template>
+                        <span
+                            x-show="m.role === 'assistant' && m.typing"
+                            class="ai-caret"
+                            aria-hidden="true"
+                        ></span>
+                    </div>
+                </div>
+            </template>
+        </section>
+    </aside>
+</div>
+<script>
+function analysisApp() {
+    return {
+        // ----- state -----
+        API_BASE: '/api/analysis-grade-one/',
+        PAGE_SIZE: 100,
+
+        rows: [],
+        total: 0,
+        page: 1,
+        totalPages: 1,
+        loading: false,
+        exporting: false,
+
+        search: '',
+        searchActive: false,
+
+        filters: {
+            category_code: '',
+            age_in_months: '',
+            completed: '',
+            discount_quality: '',
+            status_tag: '',
+            action: '',
+        },
+
+        sort: { key: 'product_code', dir: 'asc' },
+
+        tooltip: { visible: false, text: '', x: 0, y: 0 },
+
+        // ----- constants -----
+        discountQualities: ['طبیعی', 'حمایت‌شده', 'وابسته', 'در_فشار'],
+        statusTags: [
+            'موجودی_مرده_کامل', 'موجودی_مرده_مانده', 'زود_تمام_شده',
+            'متوقف_شده', 'قوی', 'خطر', 'سلامت', 'ضعیف', 'na'
+        ],
+        actions: [
+            'آرشیو', 'پایان_فصل', 'خرید', 'تحقیق',
+            'تخفیف_50', 'کنترل', 'تخفیف_30', 'تخفیف_20',
+        ],
+        categories: [
+            { code: '17', name: 'ادکلن' },
+            { code: '18', name: 'پالتو' },
+            { code: '50', name: 'پلیور بافت یقه 5 سانت' },
+            { code: '42', name: 'پلیور بافت یقه گرد ساده' },
+            { code: '58', name: 'پلیور بافت یقه گرد طرح دار' },
+            { code: '72', name: 'پلیور بافت یقه هفت' },
+            { code: '57', name: 'پلیور دورس' },
+            { code: '89', name: 'پلیور سلانیک یقه هفت' },
+            { code: '56', name: 'پلیور سلانیک یقه گرد' },
+            { code: '41', name: 'پلیور نیم زیپ' },
+            { code: '79', name: 'پلیور یقه اسکی' },
+            { code: '88', name: 'پلیور یقه پیراهنی' },
+            { code: '86', name: 'پولوشرت آستین بلند' },
+            { code: '93', name: 'پولوشرت ساده' },
+            { code: '94', name: 'پولوشرت طرح دار' },
+            { code: '21', name: 'پیراهن آستین بلند ساده' },
+            { code: '97', name: 'پیراهن آستین بلند چهار خانه' },
+            { code: '66', name: 'پیراهن آستین بلند راه راه' },
+            { code: '20', name: 'پیراهن آستین بلند طرح دار' },
+            { code: '22', name: 'پیراهن آستین کوتاه ساده' },
+            { code: '23', name: 'پیراهن آستین کوتاه طرح دار' },
+            { code: '75', name: 'پیراهن جین آستین کوتاه' },
+            { code: '74', name: 'پیراهن جین آستین بلند' },
+            { code: '52', name: 'پیراهن ضخیم' },
+            { code: '68', name: 'پیراهن نیمه ضخیم' },
+            { code: '95', name: 'تی شرت ساده' },
+            { code: '28', name: 'تی شرت آستین بلند' },
+            { code: '96', name: 'تی شرت طرح دار' },
+            { code: '27', name: 'تی شرت یقه اسکی' },
+            { code: '60', name: 'جعبه کفش' },
+            { code: '14', name: 'جلیقه' },
+            { code: '53', name: 'جلیقه شمعی' },
+            { code: '33', name: 'جوراب ساق دار' },
+            { code: '36', name: 'جوراب ضخیم' },
+            { code: '91', name: 'جوراب مچی' },
+            { code: '34', name: 'جوراب نیم ساق' },
+            { code: '19', name: 'زیر پوش رکابی' },
+            { code: '84', name: 'زیرپوش آستین دار' },
+            { code: '92', name: 'ست' },
+            { code: '13', name: 'سویشرت' },
+            { code: '76', name: 'سویشرت بافت' },
+            { code: '49', name: 'سویشرت شمعی' },
+            { code: '62', name: 'شلوار پارچه ای رگولار' },
+            { code: '26', name: 'شلوار اسلش' },
+            { code: '69', name: 'شلوار اسلش کتان' },
+            { code: '30', name: 'شلوار اسلش ورزشی' },
+            { code: '48', name: 'شلوار پارچه ای' },
+            { code: '32', name: 'شلوار پارچه ای اسکینی' },
+            { code: '61', name: 'شلوار پارچه ای اسلیم' },
+            { code: '24', name: 'شلوار جین' },
+            { code: '12', name: 'شلوار جین رگولار' },
+            { code: '10', name: 'شلوار جین اسکینی' },
+            { code: '63', name: 'شلوار جین اسلش' },
+            { code: '11', name: 'شلوار جین اسلیم' },
+            { code: '25', name: 'شلوار کتان' },
+            { code: '15', name: 'شلوار کتان اسلیم' },
+            { code: '31', name: 'شلوارک' },
+            { code: '81', name: 'شورت اسلیپ' },
+            { code: '83', name: 'شورت پادار' },
+            { code: '82', name: 'شورت نیم پا' },
+            { code: '16', name: 'کاپشن' },
+            { code: '78', name: 'کاپشن جین' },
+            { code: '51', name: 'کاپشن ضخیم' },
+            { code: '87', name: 'کاپشن کتان' },
+            { code: '90', name: 'کارت هدیه' },
+            { code: '47', name: 'کت تک رسمی' },
+            { code: '46', name: 'کت تک روزمره' },
+            { code: '80', name: 'کت جین' },
+            { code: '77', name: 'کت کتان' },
+            { code: '67', name: 'کراوات' },
+            { code: '44', name: 'کفش روزمره' },
+            { code: '73', name: 'کفش بوت' },
+            { code: '43', name: 'کفش رسمی' },
+            { code: '59', name: 'کفش نیم بوت رسمی' },
+            { code: '70', name: 'کفش نیم بوت روزمره' },
+            { code: '45', name: 'کفش ورزشی' },
+            { code: '65', name: 'کفی کفش' },
+            { code: '39', name: 'کلاه' },
+            { code: '40', name: 'کلاه ضخیم' },
+            { code: '38', name: 'کمربند رسمی' },
+            { code: '37', name: 'کمربند روزمره' },
+            { code: '99', name: 'کیف' },
+            { code: '71', name: 'هودی' },
+        ],
+        columns: [
+            { key: 'product_code',              label: 'کد محصول' },
+            { key: 'name',             label: 'نام', cls: 'tag' },            
+            { key: 'age_in_months',             label: 'سن (ماه)' },
+            { key: 'age_in_days',               label: 'سن (روز)' },
+            { key: 'total_inventory',           label: 'تعداد کل',   cls: 'num', dec: 2 },
+            { key: 'total_sold_12_months',      label: 'فروش 12 ماهه',    cls: 'num', dec: 2 },
+            { key: 'remaining_inventory',       label: 'موجودی مانده',   cls: 'num', dec: 2 },
+            { key: 'remaining_months',          label: 'ماه باقی‌مانده' },
+            { key: 'cumulative_sell_through',   label: 'درصد فروش تجمیعی',       cls: 'num', dec: 2 },
+            { key: 'benchmark_cumulative_sell_through', label: 'میانگین درصد فروش تجمیعی', cls: 'num', dec: 2 },
+            { key: 'rstr',                      label: 'RSTR',        cls: 'num', dec: 2, tip: "فروش تجمیعی درصدی بر فروش تجمیعی درصدی بنچمارک" },
+            { key: 'cdr',                       label: 'CDR',         cls: 'num', dec: 2, tip: "فروش تجمیعی تعدادی بر فروش تجمیعی تعدادی بنچمارک" },
+            { key: 'rvr',                       label: 'RVR',         cls: 'num', dec: 2, tip: "سرعت فعلی بر سرعت بنچمارک (بالای 1: مطلوب)"},
+            { key: 'vt',                        label: 'روند فروش' },
+            { key: 'discount_percentage',       label: 'درصد تخفیف',  cls: 'num', dec: 2 },
+            { key: 'avg_discount_percentage',   label: 'درصد تخفیف میانگین',  cls: 'num', dec: 2 },
+            { key: 'dd',                        label: 'DD',          cls: 'num', dec: 2, tip: "DD = درصد تخفیف میانگین دسته‌بندی - درصد تخفیف محصول" },
+            { key: 'discount_quality',          label: 'کیفیت تخفیف', cls: 'tag' },
+            { key: 'current_velocity',          label: 'سرعت فعلی',     cls: 'num', dec: 2 },
+            { key: 'required_future_velocity',  label: 'سرعت لازم',     cls: 'num', dec: 2 },
+            { key: 'velocity_gap',              label: 'گپ سرعت',     cls: 'num', dec: 2 },
+            { key: 'completed',                 label: 'کامل شده' },
+            { key: 'status_tag',                label: 'تگ',      cls: 'tag' },
+            { key: 'action',                    label: 'اقدام پیشنهادی',      cls: 'tag' },
+            { key: 'active_action',             label: 'اقدام فعال',           cls: 'tag' },
+            { key: 'active_action_start_date',  label: 'تاریخ شروع اقدام فعال' },
+            { key: 'active_action_end_date',    label: 'تاریخ پایان اقدام فعال' },
+            { key: 'action_count_total',        label: 'تعداد کل اقدامات' },
+            { key: 'action_count_measured',     label: 'تعداد اقدامات اندازه‌گیری‌شده' },
+            { key: 'last_action',               label: 'آخرین اقدام',           cls: 'tag' },
+            { key: 'last_action_verdict',       label: 'نتیجه آخرین اقدام',     cls: 'tag' },
+            { key: 'last_action_lift',          label: 'لیفت آخرین اقدام',      cls: 'num', dec: 2 },
+            { key: 'last_action_margin_impact', label: 'تأثیر حاشیه آخرین اقدام', cls: 'num', dec: 2 },
+            { key: 'actions_remaining',         label: 'اقدامات باقی‌مانده' },
+            { key: 'next_recommended_action',   label: 'اقدام پیشنهادی بعدی',   cls: 'tag' },
+        ],
+
+        // ----- lifecycle -----
+        init() {
+            this.initAi();
+            this.fetchPage(1);
+        },
+
+        // ----- helpers -----
+        get hasFilters() {
+            return Object.values(this.filters).some(v => v !== '');
+        },
+
+        get sortedRows() {
+            const { key, dir } = this.sort;
+            const mul = dir === 'asc' ? 1 : -1;
+            return [...this.rows].sort((a, b) => {
+                const va = a[key], vb = b[key];
+                if (va == null && vb == null) return 0;
+                if (va == null) return 1;
+                if (vb == null) return -1;
+                const na = Number(va), nb = Number(vb);
+                if (!isNaN(na) && !isNaN(nb)) return (na - nb) * mul;
+                return String(va).localeCompare(String(vb)) * mul;
+            });
+        },
+
+        formatCell(v, col) {
+            if (v === null || v === undefined || v === '') return '—';
+            if (col.cls && col.cls.includes('num') && col.dec !== undefined) {
+                const n = Number(v);
+                if (isNaN(n)) return v;
+                return n.toLocaleString(undefined, {
+                    minimumFractionDigits: col.dec,
+                    maximumFractionDigits: col.dec,
+                });
+            }
+            return v;
+        },
+
+        // ----- tooltip -----
+        showTip(event, text) {
+            if (!text) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            this.tooltip = {
+                visible: true,
+                text,
+                x: rect.left + rect.width / 2,
+                y: rect.bottom + 8,
+            };
+        },
+
+        hideTip() {
+            this.tooltip.visible = false;
+        },
+
+        buildQuery(extra = {}) {
+            const p = new URLSearchParams();
+            p.set('page', this.page);
+            p.set('page_size', this.PAGE_SIZE);
+            for (const [k, v] of Object.entries(this.filters)) {
+                if (v !== '' && v !== null) p.set(k, v);
+            }
+            for (const [k, v] of Object.entries(extra)) {
+                if (v !== '' && v !== null) p.set(k, v);
+            }
+            return p.toString();
+        },
+
+        // ----- data -----
+        async fetchPage(page) {
+            this.loading = true;
+            this.searchActive = false;
+            try {
+                const q = new URLSearchParams();
+                q.set('page', page);
+                q.set('page_size', this.PAGE_SIZE);
+                for (const [k, v] of Object.entries(this.filters)) {
+                    if (v !== '' && v !== null) q.set(k, v);
+                }
+                const res = await fetch(`${this.API_BASE}?${q.toString()}`);
+                const data = await res.json();
+                this.rows = data.results || [];
+                this.total = data.count || 0;
+                this.page = page;
+                this.totalPages = Math.max(1, Math.ceil(this.total / this.PAGE_SIZE));
+                this.notifyDataChanged();
+            } catch (e) {
+                console.error(e);
+                this.rows = [];
+                this.total = 0;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async fetchAllForExport() {
+            // Fetch ALL records matching current filters, not just current page
+            const out = [];
+            const pageSize = 1000;
+            let page = 1;
+            while (true) {
+                const q = new URLSearchParams();
+                q.set('page', page);
+                q.set('page_size', pageSize);
+                for (const [k, v] of Object.entries(this.filters)) {
+                    if (v !== '' && v !== null) q.set(k, v);
+                }
+                const res = await fetch(`${this.API_BASE}?${q.toString()}`);
+                const data = await res.json();
+                const batch = data.results || [];
+                out.push(...batch);
+                if (!data.next || batch.length === 0) break;
+                page++;
+            }
+            return out;
+        },
+
+        // ----- actions -----
+        goTo(page) {
+            if (page < 1 || page > this.totalPages || this.loading) return;
+            this.fetchPage(page);
+        },
+
+        onFilterChange() {
+            this.searchActive = false;
+            this.fetchPage(1);
+        },
+
+        resetFilters() {
+            this.filters = {
+                category_code: '', age_in_months: '', completed: '',
+                discount_quality: '', status_tag: '', action: '',
+            };
+            this.search = '';
+            this.searchActive = false;
+            this.fetchPage(1);
+        },
+
+        async searchOne() {
+            const code = this.search.trim();
+            if (!code) return;
+            this.loading = true;
+            try {
+                const res = await fetch(`${this.API_BASE}${encodeURIComponent(code)}/`);
+                if (res.status === 404) {
+                    this.rows = [];
+                    this.total = 0;
+                    this.searchActive = true;
+                    return;
+                }
+                const data = await res.json();
+                this.rows = [data];
+                this.total = 1;
+                this.page = 1;
+                this.totalPages = 1;
+                this.searchActive = true;
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        clearSearch() {
+            this.search = '';
+            this.searchActive = false;
+            this.fetchPage(1);
+        },
+
+        sortBy(key) {
+            if (this.sort.key === key) {
+                this.sort.dir = this.sort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sort.key = key;
+                this.sort.dir = 'asc';
+            }
+        },
+
+        async exportExcel() {
+            this.exporting = true;
+            try {
+                const all = await this.fetchAllForExport();
+                const headers = this.columns.map(c => c.label);
+                const keys = this.columns.map(c => c.key);
+                const aoa = [headers, ...all.map(r => keys.map(k => r[k] ?? ''))];
+                const ws = XLSX.utils.aoa_to_sheet(aoa);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'AnalysisGradeOne');
+                const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+                XLSX.writeFile(wb, `analysis_${stamp}.xlsx`);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.exporting = false;
+            }
+        },
+
+        // ----- ai state -----
+        aiOpen: false,
+        aiPrompt: '',
+        aiMessages: [],       // { role: 'user'|'assistant', content: string, typing?: bool }
+        aiLoading: false,
+        _aiAbortController: null,
+
+        // default prompt — set on init
+        _defaultAiPrompt() {
+            return [
+                'تو یک تحلیل‌گر موجودی هستی. یک آرایه JSON از ردیف‌های محصول به تو داده می‌شود.',
+                'هر ردیف قبلاً توسط یک موتور قانون دسته‌بندی شده است؛ ستون‌های status_tag، action و next_recommended_action خروجی این موتور هستند.',
+                'وظیفه تو یافتن الگوهای بین‌ردیفی، علامت‌گذاری موارد مبهم و خلاصه کردن وضعیت دسته است.',
+                'ستون‌های عددی را بازمحاسبه نکن و قانون جدید نساز.',
+                '',
+                '۱) دسته را در ۳ جمله خلاصه کن.',
+                '۲) ۳ تا ۵ ردیف را که دسته‌بندی‌شان نامطمئن یا متناقض به‌نظر می‌رسد، مشخص کن و دلیل بیاور.',
+                '۳) ردیف‌ها را بر اساس next_recommended_action گروه‌بندی کن و الگوی سیگنالی هر گروه را توضیح بده.',
+                '۴) ردیف‌هایی که به‌نظر می‌رسد موارد لبه‌ای (edge case) هستند و موتور قانون به‌خوبی پوشش نداده، فهرست کن.',
+            ].join('\n');
+        },
+
+        // Called from init()
+        initAi() {
+            this.aiPrompt = this._defaultAiPrompt();
+        },
+
+        resetAiPrompt() {
+            this.aiPrompt = this._defaultAiPrompt();
+        },
+
+        // Number of rows that would be sent
+        get rowCountForPrompt() {
+            return this.rows ? this.rows.length : 0;
+        },
+
+        // Called whenever the data changes (see watchers below)
+        notifyDataChanged() {
+            if (this.aiMessages.length > 0 && !this.aiLoading) {
+                this.aiMessages = [];
+            }
+        },
+
+        projectRowsForAi(rows) {
+            const FIELDS = [
+                'product_code',
+                'name',
+                'category_code',
+                'age_in_months',
+                'total_sold_12_months',
+                'remaining_inventory',
+                'remaining_months',
+                'cumulative_sell_through',
+                'rstr',
+                'rvr',
+                'velocity_gap',
+                'vt',
+                'discount_percentage',
+                'discount_quality',
+                'dd',
+                'completed',
+                'status_tag',
+                'action',
+                'active_action',
+                'action_count_total',
+                'last_action',
+                'last_action_verdict',
+                'next_recommended_action',
+            ];
+            return rows.map(row => {
+                const out = {};
+                for (const k of FIELDS) out[k] = row[k];
+                return out;
+            });
+        },
+
+        // Submit
+        async sendAiPrompt() {
+            if (this.aiLoading || this.rowCountForPrompt === 0) return;
+
+            // capture the current prompt + current rows as a user message
+            const userText = this.aiPrompt;
+            this.aiMessages.push({ role: 'user', content: userText });
+            this.aiMessages.push({ role: 'assistant', content: '', typing: true });
+            this.aiLoading = true;
+            this.$nextTick(() => this.scrollChat());
+
+            try {
+                // -------- BACKEND WIRING GOES HERE --------
+                const projected = this.projectRowsForAi(this.rows);
+                const res = await fetch('/api/ai/analyze/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: userText,
+                        rows: projected,          // or a trimmed version
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || `HTTP ${res.status}`);
+                }
+                await this.typeAssistantReply(data.reply);
+            } catch (e) {
+                console.error(e);
+                this._replaceLastAssistant('خطا در دریافت پاسخ. لطفاً دوباره تلاش کنید.');
+            } finally {
+                this.aiLoading = false;
+            }
+        },
+
+        // Typewriter effect
+        async typeAssistantReply(text) {
+            const msg = this.aiMessages[this.aiMessages.length - 1];
+            msg.content = '';
+            msg.typing = true;
+
+            const CHUNK = 3;       // chars per tick
+            const DELAY = 18;      // ms between ticks
+            for (let i = 0; i < text.length; i += CHUNK) {
+                msg.content += text.slice(i, i + CHUNK);
+                this.$nextTick(() => this.scrollChat());
+                await new Promise(r => setTimeout(r, DELAY));
+            }
+            msg.typing = false;
+            this.$nextTick(() => this.scrollChat());
+        },
+
+        _replaceLastAssistant(text) {
+            const last = this.aiMessages[this.aiMessages.length - 1];
+            if (last && last.role === 'assistant') {
+                last.content = text;
+                last.typing = false;
+            }
+        },
+
+        // Render assistant content: convert newlines to <br> and bold **text**
+        renderAssistant(m) {
+            if (!m.content) return '';
+            let s = m.content
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/\n/g, '<br>');
+            return s;
+        },
+
+        // Auto-scroll the chat to the bottom
+        // scrollChat() {
+        //     const el = this.$refs.chatScroll;
+        //     if (el) el.scrollTop = el.scrollHeight;
+        // },
+    };
+}
+</script>
+{% endblock %}

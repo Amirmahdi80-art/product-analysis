@@ -1,0 +1,95 @@
+2026-08-24 14:34:02,376 - INFO - Starting full sync...
+2026-08-24 14:34:02,688 - INFO - Tables truncated successfully
+2026-08-24 14:34:02,689 - INFO - Starting voucher sync...
+2026-08-24 14:34:03,135 - INFO - Total rows to sync: 3514813
+2026-08-24 14:36:26,227 - INFO - Synced 1000000/3514813 rows for voucher (28.5%)
+2026-08-24 14:40:55,391 - INFO - Synced 2000000/3514813 rows for voucher (56.9%)
+2026-08-24 14:46:59,525 - INFO - Synced 3000000/3514813 rows for voucher (85.4%)
+2026-08-24 14:49:47,113 - INFO - Synced 3514825/3514813 rows for voucher (100.0%)
+2026-08-24 14:49:47,117 - INFO - Voucher sync completed in 944.43 seconds
+2026-08-24 14:49:47,607 - INFO - Starting invoiceitems sync...
+2026-08-24 14:49:49,071 - INFO - Total rows to sync: 872519
+2026-08-24 14:53:27,225 - INFO - Synced 872519/872519 rows for invoiceitems (100.0%)
+2026-08-24 14:53:27,226 - INFO - Invoiceitems sync completed in 219.62 seconds
+2026-08-24 14:53:39,479 - INFO - ==================================================
+2026-08-24 14:53:39,480 - INFO - VERIFICATION RESULTS:
+2026-08-24 14:53:39,481 - INFO - Voucher - SQL Server: 3514825, MySQL: 3514825
+2026-08-24 14:53:39,481 - INFO - Invoiceitems - SQL Server: 872521, MySQL: 872519
+2026-08-24 14:53:39,839 - INFO - ==================================================
+2026-08-24 14:53:39,840 - INFO - Full sync completed in 1177.46 seconds
+2026-09-02 12:50:21,998 - INFO - Starting full sync...
+2026-09-02 12:50:22,822 - INFO - Tables truncated successfully
+2026-09-02 12:50:22,824 - INFO - Starting voucher sync...
+2026-09-02 12:50:23,704 - INFO - Total rows to sync: 3523244
+2026-09-02 12:52:50,506 - INFO - Synced 1000000/3523244 rows for voucher (28.4%)
+2026-09-02 12:55:03,733 - INFO - Synced 2000000/3523244 rows for voucher (56.8%)
+2026-09-02 12:57:01,706 - INFO - Synced 3000000/3523244 rows for voucher (85.1%)
+2026-09-02 12:58:30,192 - INFO - Synced 3523244/3523244 rows for voucher (100.0%)
+2026-09-02 12:58:30,203 - INFO - Voucher sync completed in 487.38 seconds
+2026-09-02 12:58:30,489 - INFO - Starting invoiceitems sync...
+2026-09-02 12:58:32,467 - INFO - Total rows to sync: 875250
+2026-09-02 13:01:39,126 - INFO - Synced 875250/875250 rows for invoiceitems (100.0%)
+2026-09-02 13:01:39,136 - INFO - Invoiceitems sync completed in 188.65 seconds
+2026-09-02 13:01:46,463 - INFO - ==================================================
+2026-09-02 13:01:46,463 - INFO - VERIFICATION RESULTS:
+2026-09-02 13:01:46,463 - INFO - Voucher - SQL Server: 3523244, MySQL: 3523244
+2026-09-02 13:01:46,464 - INFO - Invoiceitems - SQL Server: 875250, MySQL: 875250
+2026-09-02 13:01:46,809 - INFO - ==================================================
+2026-09-02 13:01:46,810 - INFO - Full sync completed in 684.81 seconds
+2026-09-02 13:15:09,331 - INFO - Starting full sync...
+2026-09-02 13:15:09,809 - INFO - Tables truncated successfully
+2026-09-02 13:15:09,811 - INFO - Starting voucher sync...
+2026-09-02 13:15:10,480 - INFO - Total rows to sync: 3523244
+2026-09-02 13:17:33,160 - INFO - Synced 1000000/3523244 rows for voucher (28.4%)
+2026-09-02 13:19:44,402 - INFO - Synced 2000000/3523244 rows for voucher (56.8%)
+2026-09-02 13:21:42,217 - INFO - Synced 3000000/3523244 rows for voucher (85.1%)
+2026-09-02 13:22:53,198 - INFO - Synced 3523301/3523244 rows for voucher (100.0%)
+2026-09-02 13:22:53,199 - INFO - Voucher sync completed in 463.39 seconds
+2026-09-02 13:22:53,573 - INFO - Starting invoiceitems sync...
+2026-09-02 13:22:54,851 - INFO - Total rows to sync: 875277
+2026-09-02 13:26:00,736 - INFO - Synced 875277/875277 rows for invoiceitems (100.0%)
+2026-09-02 13:26:00,736 - INFO - Invoiceitems sync completed in 187.16 seconds
+2026-09-02 13:26:10,927 - INFO - ==================================================
+2026-09-02 13:26:10,928 - INFO - VERIFICATION RESULTS:
+2026-09-02 13:26:10,929 - INFO - Voucher - SQL Server: 3523331, MySQL: 3523301
+2026-09-02 13:26:10,930 - INFO - Invoiceitems - SQL Server: 875284, MySQL: 875277
+2026-09-02 13:26:10,981 - INFO - ==================================================
+2026-09-02 13:26:10,985 - INFO - Full sync completed in 661.65 seconds
+2026-09-20 10:30:04,641 - INFO - Starting full sync...
+2026-09-20 10:30:05,020 - INFO - Tables truncated successfully
+2026-09-20 10:30:05,024 - INFO - Starting voucher sync...
+2026-09-20 10:30:05,773 - INFO - Total rows to sync: 3539305
+2026-09-20 10:31:56,252 - INFO - Synced 1000000/3539305 rows for voucher (28.3%)
+2026-09-20 10:33:38,877 - INFO - Synced 2000000/3539305 rows for voucher (56.5%)
+2026-09-20 10:35:20,051 - INFO - Synced 3000000/3539305 rows for voucher (84.8%)
+2026-09-20 10:36:24,932 - INFO - Synced 3539305/3539305 rows for voucher (100.0%)
+2026-09-20 10:36:24,932 - INFO - Voucher sync completed in 379.89 seconds
+2026-09-20 10:36:25,203 - INFO - Starting invoiceitems sync...
+2026-09-20 10:36:27,200 - INFO - Total rows to sync: 880548
+2026-09-20 10:39:05,846 - INFO - Synced 880548/880548 rows for invoiceitems (100.0%)
+2026-09-20 10:39:05,858 - INFO - Invoiceitems sync completed in 160.66 seconds
+2026-09-20 10:39:12,505 - INFO - ==================================================
+2026-09-20 10:39:12,506 - INFO - VERIFICATION RESULTS:
+2026-09-20 10:39:12,507 - INFO - Voucher - SQL Server: 3539305, MySQL: 3539305
+2026-09-20 10:39:12,507 - INFO - Invoiceitems - SQL Server: 880550, MySQL: 880548
+2026-09-20 10:39:12,607 - INFO - ==================================================
+2026-09-20 10:39:12,607 - INFO - Full sync completed in 547.96 seconds
+2026-09-29 11:37:40,089 - INFO - Starting full sync...
+2026-09-29 11:37:40,539 - INFO - Tables truncated successfully
+2026-09-29 11:37:40,540 - INFO - Starting voucher sync...
+2026-09-29 11:37:41,162 - INFO - Total rows to sync: 3547571
+2026-09-29 11:39:34,289 - INFO - Synced 1000000/3547571 rows for voucher (28.2%)
+2026-09-29 11:41:27,423 - INFO - Synced 2000000/3547571 rows for voucher (56.4%)
+2026-09-29 11:43:30,845 - INFO - Synced 3000000/3547571 rows for voucher (84.6%)
+2026-09-29 11:44:38,834 - INFO - Synced 3547571/3547571 rows for voucher (100.0%)
+2026-09-29 11:44:38,834 - INFO - Voucher sync completed in 418.29 seconds
+2026-09-29 11:44:39,049 - INFO - Starting invoiceitems sync...
+2026-09-29 11:44:40,364 - INFO - Total rows to sync: 882786
+2026-09-29 11:47:26,838 - INFO - Synced 882786/882786 rows for invoiceitems (100.0%)
+2026-09-29 11:47:26,838 - INFO - Invoiceitems sync completed in 167.79 seconds
+2026-09-29 11:47:33,825 - INFO - ==================================================
+2026-09-29 11:47:33,826 - INFO - VERIFICATION RESULTS:
+2026-09-29 11:47:33,827 - INFO - Voucher - SQL Server: 3547571, MySQL: 3547571
+2026-09-29 11:47:33,827 - INFO - Invoiceitems - SQL Server: 882786, MySQL: 882786
+2026-09-29 11:47:34,370 - INFO - ==================================================
+2026-09-29 11:47:34,372 - INFO - Full sync completed in 594.28 seconds
