@@ -2,12 +2,13 @@ from django.utils.dateparse import parse_date
 from rest_framework import viewsets
 from django.shortcuts import render
 
-from .models import TwelveMonthAnalysis, TwelveMonthAnalysisStore, AnalysisGradeOne
+from .models import TwelveMonthAnalysis, TwelveMonthAnalysisStore, AnalysisGradeOne, TwelveMonthAnalysis, TwelveMonthAnalysisStore
 from .serializers import (
     TwelveMonthAnalysisSerializer,
     TwelveMonthAnalysisStoreSerializer,
     AnalysisGradeOneSerializer
 )
+from django.shortcuts import get_object_or_404, render
 
 
 class ProductFilterMixin:
@@ -188,3 +189,61 @@ def ai_analyze(request):
         )
 
     return JsonResponse({"reply": reply})
+
+
+def product_detail_page(request, product_code):
+    product = get_object_or_404(TwelveMonthAnalysis, product_code=product_code)
+
+    stores = (
+        TwelveMonthAnalysisStore.objects
+        .filter(product_code=product_code)
+        .order_by('-total_sold_12_months')
+    )
+    best_store = stores.filter(best_store=True).first()
+
+    analysis = get_object_or_404(AnalysisGradeOne, product_code=product_code)
+
+    # --- monthly series for the charts ---
+    monthly_labels = [f'ماه {i}' for i in range(1, 13)]
+
+    monthly_qty = [
+        float(product.first_month_qty or 0),
+        float(product.second_month_qty or 0),
+        float(product.third_month_qty or 0),
+        float(product.forth_month_qty or 0),
+        float(product.fifth_month_qty or 0),
+        float(product.sixth_month_qty or 0),
+        float(product.seventh_month_qty or 0),
+        float(product.eighth_month_qty or 0),
+        float(product.ninth_month_qty or 0),
+        float(product.tenth_month_qty or 0),
+        float(product.eleventh_month_qty or 0),
+        float(product.twelveth_month_qty or 0),
+    ]
+
+    monthly_pct = [
+        float(product.first_month_per or 0),
+        float(product.second_month_per or 0),
+        float(product.third_month_per or 0),
+        float(product.forth_month_per or 0),
+        float(product.fifth_month_per or 0),
+        float(product.sixth_month_per or 0),
+        float(product.seventh_month_per or 0),
+        float(product.eighth_month_per or 0),
+        float(product.ninth_month_per or 0),
+        float(product.tenth_month_per or 0),
+        float(product.eleventh_month_per or 0),
+        float(product.twelveth_month_per or 0),
+    ]
+
+    context = {
+        'product': product,
+        'stores': stores,
+        'best_store': best_store,
+        'analysis': analysis,
+        'monthly_labels': monthly_labels,
+        'monthly_qty': monthly_qty,
+        'monthly_pct': monthly_pct,
+    }
+    return render(request, 'product_detail.html', context)
+

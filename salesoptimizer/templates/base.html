@@ -785,6 +785,27 @@
                 font-size: 13px;
             }
         }
+        /* Table cell link */
+        .cell-link {
+            color: #10a37f;
+            font-weight: 600;
+            text-decoration: none;
+            border-bottom: 1px dashed transparent;
+            transition: color .12s, border-color .12s;
+            direction: ltr;
+            font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        }
+
+        .cell-link:hover {
+            color: #0e8f6f;
+            border-bottom-color: currentColor;
+        }
+
+        .cell-link:focus-visible {
+            outline: 2px solid #10a37f;
+            outline-offset: 2px;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>

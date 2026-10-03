@@ -1,0 +1,1248 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ product.product_code }} — پروفایل محصول{% endblock %}
+
+{% block content %}
+<style>
+/* ============================================================
+   PRODUCT DETAIL — CHARTS & METRIC CARDS
+   ============================================================ */
+
+/* ---------- Charts row ---------- */
+.charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 900px) {
+    .charts-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart {
+    width: 100%;
+    min-height: 320px;
+    padding: 8px 4px 12px;
+}
+
+.card-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* ---------- Highcharts cleanup ---------- */
+/* Remove Highcharts' default title, legend, and bottom-left URL */
+.highcharts-title,
+.highcharts-credits,
+.highcharts-legend {
+    display: none !important;
+}
+
+/* Softer tick marks */
+.highcharts-axis-line {
+    stroke: #e2e8f0;
+    stroke-width: 1;
+}
+
+.highcharts-grid-line {
+    stroke: #e2e8f0;
+    stroke-dasharray: 3 4;
+    stroke-width: 1;
+}
+
+.highcharts-xaxis-labels text,
+.highcharts-yaxis-labels text {
+    fill: #64748b !important;
+    font-family: "Yekan_Medium", sans-serif !important;
+    font-size: 12px !important;
+}
+
+/* Tooltip */
+.highcharts-tooltip > span {
+    font-family: "Yekan_Medium", sans-serif !important;
+    padding: 2px 4px;
+}
+
+/* ============================================================
+   METRIC CARDS  (bigger, card-like version of .metrics-grid)
+   ============================================================ */
+
+.metrics-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 12px;
+    padding: 18px;
+    background: radial-gradient(ellipse at top left, #1a1a2e, #0d0d0d);
+    border-top: 1px solid linear-gradient(135deg, #10a37f, #4a9eff);;
+}
+
+.metric-card {
+    border: 1px solid #746189;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #10a37f, #4a9eff);
+    opacity: 0;
+    transition: opacity .15s;
+}
+
+.metric-card:hover {
+    transform: translateY(-1px);
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.metric-card:hover::before {
+    opacity: 1;
+}
+
+.metric-card-label {
+    font-size: 11px;
+    color: #ffffff;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.metric-card-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    direction: ltr;
+    text-align: right;
+}
+
+.metric-card-value small {
+    font-size: 12px;
+    font-weight: 500;
+    color: #cecece;
+    margin-inline-start: 4px;
+}
+
+.metric-card-value.pct::after {
+    content: '٪';
+    font-size: 13px;
+    color: #64748b;
+    margin-inline-start: 4px;
+}
+
+.metric-card-foot {
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.6;
+}
+
+/* Color variants for status/metric emphasis */
+.metric-card.is-good {
+    border-color: #a7f3d0;
+    /* background: linear-gradient(180deg, #f0fdf4, #ffffff); */
+}
+
+.metric-card.is-good .metric-card-value {
+    color: #c6ffef;
+}
+
+.metric-card.is-good .metric-card-label {
+    color: #c6ffef;
+}
+
+.metric-card.is-warn {
+    border-color: #fcd34d;
+    /* background: linear-gradient(180deg, #fffbeb, #ffffff); */
+}
+
+.metric-card.is-warn .metric-card-value {
+    color: #b45309;
+}
+
+.metric-card.is-warn .metric-card-label {
+    color: #ffdfc7;
+}
+
+.metric-card.is-bad {
+    border-color: #fca5a5;
+    /* background: linear-gradient(180deg, #fef2f2, #ffffff); */
+}
+
+.metric-card.is-bad .metric-card-value {
+    color: #b91c1c;
+}
+
+.metric-card.is-bad .metric-card-label {
+    color: #b91c1c;
+}
+
+/* Tag pills inside metric cards */
+.metric-card .pill {
+    font-size: 11.5px;
+    padding: 3px 10px;
+    align-self: flex-start;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 720px) {
+    .metrics-cards {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .metric-card {
+        padding: 12px 14px;
+    }
+
+    .metric-card-value {
+        font-size: 17px;
+    }
+
+    .chart {
+        min-height: 260px;
+    }
+}
+
+/* ============================================================
+   PRODUCT IDENTITY CARD
+   ============================================================ */
+
+.product-ident {
+    background: var(--chrome);
+    border: 1px solid var(--chrome-border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 18px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* subtle brand accent along the leading edge */
+.product-ident::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, #10a37f, #4a9eff);
+}
+
+/* ---------- Back link ---------- */
+.product-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--chrome-muted);
+    text-decoration: none;
+    padding: 0;
+    width: fit-content;
+    transition: color .15s, transform .15s;
+}
+
+.product-back:hover {
+    color: var(--header-color);
+    transform: translateX(-2px);
+}
+
+[dir="rtl"] .product-back:hover {
+    transform: translateX(2px);
+}
+
+/* ---------- Body layout ---------- */
+.product-ident-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+@media (min-width: 900px) {
+    .product-ident-body {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+    }
+}
+
+.product-ident-main {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.product-ident-name {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--header-color);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------- Meta inline row ---------- */
+.product-ident-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--chrome-muted);
+}
+
+.meta-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.meta-label {
+    color: var(--chrome-muted);
+    font-size: 11.5px;
+    font-weight: 500;
+}
+
+.meta-value {
+    color: var(--header-color);
+    font-weight: 600;
+}
+
+.meta-value.code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    direction: ltr;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
+.meta-divider {
+    width: 1px;
+    height: 12px;
+    background: var(--chrome-border);
+    display: inline-block;
+}
+
+/* ---------- Tags ---------- */
+.product-ident-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--chrome-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--header-color);
+    white-space: nowrap;
+    transition: transform .1s;
+}
+
+.tag-pill:hover {
+    transform: translateY(-1px);
+}
+
+.tag-status {
+    background: rgba(74, 158, 255, 0.14);
+    border-color: rgba(74, 158, 255, 0.32);
+    color: #a5c8ff;
+}
+
+.tag-action {
+    background: rgba(16, 163, 127, 0.14);
+    border-color: rgba(16, 163, 127, 0.32);
+    color: #7fe3c3;
+}
+
+.tag-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.18);
+    animation: tag-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tag-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.18); }
+    50%      { box-shadow: 0 0 0 6px rgba(16, 163, 127, 0.04); }
+}
+
+.tag-next {
+    background: rgba(168, 85, 247, 0.12);
+    border-color: rgba(168, 85, 247, 0.3);
+    color: #d8b4fe;
+}
+
+.tag-ok {
+    background: rgba(34, 197, 94, 0.14);
+    border-color: rgba(34, 197, 94, 0.32);
+    color: #86efac;
+}
+
+.tag-best {
+    background: linear-gradient(135deg, #f5c542, #e6a817);
+    border-color: transparent;
+    color: #4a3600;
+    box-shadow: 0 4px 14px rgba(230, 168, 23, 0.28);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 720px) {
+    .product-ident {
+        padding: 14px 16px 16px;
+        gap: 12px;
+    }
+
+    .product-ident-name {
+        font-size: 18px;
+    }
+
+    .product-ident-meta {
+        gap: 10px;
+        font-size: 12px;
+    }
+
+    .meta-divider {
+        display: none;
+    }
+
+    .meta-item {
+        gap: 4px;
+    }
+
+    .tag-pill {
+        font-size: 11.5px;
+        padding: 4px 10px;
+    }
+}
+/* ============================================================
+   STATS STRIP  —  dark chrome, matches filters/navbar
+   ============================================================ */
+
+.stats-strip {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: stretch;
+
+    background: var(--chrome);
+    border: 1px solid var(--chrome-border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+    color: var(--header-color);
+}
+
+/* ---------- Primary stats (left, larger) ---------- */
+.stats-primary {
+    display: flex;
+    align-items: stretch;
+    padding: 0 6px;
+    border-inline-end: 1px solid var(--chrome-border);
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 18px 22px;
+    position: relative;
+    min-width: 140px;
+    justify-content: center;
+    transition: background-color .15s ease;
+}
+
+.stat:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.stat + .stat::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 22%;
+    bottom: 22%;
+    width: 1px;
+    background: var(--chrome-border);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--chrome-muted);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+    direction: ltr;
+    text-align: right;
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(135deg, #10a37f, #4a9eff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-unit {
+    font-size: 11px;
+    color: var(--chrome-muted);
+    font-weight: 500;
+    opacity: 0.75;
+}
+
+/* ---------- Secondary stats (right, compact 2×2) ---------- */
+.stats-secondary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.stat-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 14px 20px;
+    justify-content: center;
+    transition: background-color .15s ease;
+}
+
+.stat-mini:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.stat-mini:nth-child(1) {
+    border-inline-end: 1px solid var(--chrome-border);
+    border-bottom: 1px solid var(--chrome-border);
+}
+.stat-mini:nth-child(2) {
+    border-bottom: 1px solid var(--chrome-border);
+}
+.stat-mini:nth-child(3) {
+    border-inline-end: 1px solid var(--chrome-border);
+}
+
+.stat-mini-label {
+    font-size: 10.5px;
+    color: var(--chrome-muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.stat-mini-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--header-color);
+    direction: ltr;
+    text-align: right;
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .stats-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-primary {
+        border-inline-end: none;
+        border-bottom: 1px solid var(--chrome-border);
+        padding: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .stat {
+        min-width: 130px;
+        padding: 14px 16px;
+    }
+
+    .stat-value {
+        font-size: 22px;
+    }
+
+    .stats-secondary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-secondary {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-mini {
+        border-inline-end: none !important;
+    }
+
+    .stat-mini:nth-child(1),
+    .stat-mini:nth-child(2),
+    .stat-mini:nth-child(3) {
+        border-bottom: 1px solid var(--chrome-border);
+    }
+}
+/* ============================================================
+   BEST STORE SPOTLIGHT
+   ============================================================ */
+
+.store-spotlight {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 18px;
+
+    padding: 16px 22px;
+
+    background: linear-gradient(135deg, #fffaeb 0%, #fff4d1 100%);
+    border: 1px solid #f5d47a;
+    box-shadow: 0 8px 24px rgba(230, 168, 23, 0.15);
+
+    position: relative;
+    overflow: hidden;
+}
+
+/* soft radiating glow in the corner */
+.store-spotlight::after {
+    content: '';
+    position: absolute;
+    inset-inline-end: -40px;
+    top: -40px;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 197, 66, 0.35), transparent 70%);
+    pointer-events: none;
+}
+
+/* ---------- Icon medallion ---------- */
+.store-spotlight-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #7a5a00;
+    background: linear-gradient(135deg, #f5c542, #e6a817);
+    box-shadow:
+        0 6px 18px rgba(230, 168, 23, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* ---------- Name block ---------- */
+.store-spotlight-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.store-spotlight-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    color: #a17600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.store-spotlight-name {
+    margin: 2px 0 0;
+    font-size: 19px;
+    font-weight: 700;
+    color: #4a3600;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.store-spotlight-id {
+    font-size: 12px;
+    color: #8a6b1a;
+    font-weight: 500;
+    direction: ltr;
+    text-align: right;
+    opacity: 0.85;
+}
+
+/* ---------- Stats (right side) ---------- */
+.store-spotlight-stats {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+}
+
+.spotlight-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    min-width: 80px;
+}
+
+.spotlight-stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #7a5a00;
+    line-height: 1.05;
+    direction: ltr;
+    font-feature-settings: "tnum";
+}
+
+.spotlight-stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #a17600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.spotlight-stat-divider {
+    width: 1px;
+    height: 34px;
+    background: rgba(163, 118, 0, 0.25);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 720px) {
+    .store-spotlight {
+        grid-template-columns: auto 1fr;
+        grid-template-areas:
+            "icon main"
+            "stats stats";
+        row-gap: 14px;
+        padding: 14px 16px;
+    }
+
+    .store-spotlight-icon {
+        grid-area: icon;
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+    }
+
+    .store-spotlight-main {
+        grid-area: main;
+    }
+
+    .store-spotlight-name {
+        font-size: 16px;
+    }
+
+    .store-spotlight-stats {
+        grid-area: stats;
+        justify-content: space-between;
+        width: 100%;
+        border-top: 1px solid rgba(163, 118, 0, 0.18);
+        padding-top: 12px;
+    }
+
+    .spotlight-stat {
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .spotlight-stat-value {
+        font-size: 18px;
+    }
+}
+[dir="rtl"] td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+</style>
+<div class="product-page" dir="rtl">
+
+    <!-- ============ PRODUCT IDENTITY CARD ============ -->
+    <section class="product-ident">
+        <a href="javascript:history.back()" class="product-back">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            <span>بازگشت به فهرست</span>
+        </a>
+
+        <div class="product-ident-body">
+            <div class="product-ident-main">
+                <h1 class="product-ident-name">
+                    {{ analysis.name|default:product.product_code }}
+                </h1>
+                <div class="product-ident-meta">
+                    <span class="meta-item">
+                        <span class="meta-label">کد محصول</span>
+                        <span class="meta-value code">{{ product.product_code }}</span>
+                    </span>
+                    {% if product.category_code %}
+                        <span class="meta-divider"></span>
+                        <span class="meta-item">
+                            <span class="meta-label">دسته‌بندی</span>
+                            <span class="meta-value">{{ product.category_code }}</span>
+                        </span>
+                    {% endif %}
+                    <span class="meta-divider"></span>
+                    <span class="meta-item">
+                        <span class="meta-label">سن</span>
+                        <span class="meta-value">{{ product.age_in_months }} ماه</span>
+                    </span>
+                    <span class="meta-divider"></span>
+                    <span class="meta-item">
+                        <span class="meta-label">اولین نمایش</span>
+                        <span class="meta-value code">{{ product.first_show_date|date:"Y-m-d" }}</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="product-ident-tags">
+                {% if analysis.status_tag %}
+                    <span class="tag-pill tag-status">{{ analysis.status_tag }}</span>
+                {% endif %}
+                {% if analysis.action %}
+                    <span class="tag-pill tag-action">
+                        <span class="tag-dot"></span>
+                        {{ analysis.action }}
+                    </span>
+                {% endif %}
+                {% if analysis.next_recommended_action and analysis.next_recommended_action != analysis.action %}
+                    <span class="tag-pill tag-next">
+                        بعدی: {{ analysis.next_recommended_action }}
+                    </span>
+                {% endif %}
+                {% if analysis.completed == 1 %}
+                    <span class="tag-pill tag-ok">تکمیل‌شده</span>
+                {% endif %}
+                {% if best_store %}
+                    <span class="tag-pill tag-best">
+                        ★ {{ best_store.name }}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ KPI ROW ============ -->
+    <section class="stats-strip">
+        <div class="stats-primary">
+            <div class="stat">
+                <span class="stat-label">فروش ۱۲ ماهه</span>
+                <span class="stat-value">{{ product.total_sold_12_months|floatformat:0 }}</span>
+                <span class="stat-unit">عدد</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">موجودی کل</span>
+                <span class="stat-value">{{ product.total_inventory|floatformat:0 }}</span>
+                <span class="stat-unit">عدد</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">سن محصول</span>
+                <span class="stat-value">{{ product.age_in_months }}</span>
+                <span class="stat-unit">ماه</span>
+            </div>
+        </div>
+
+        <div class="stats-secondary">
+            <div class="stat-mini">
+                <span class="stat-mini-label">درصد تخفیف</span>
+                <span class="stat-mini-value">{{ product.discount_percentage|floatformat:1 }}٪</span>
+            </div>
+            <div class="stat-mini">
+                <span class="stat-mini-label">نرخ فروش تجمعی</span>
+                <span class="stat-mini-value">{{ analysis.cumulative_sell_through|floatformat:1 }}٪</span>
+            </div>
+            <div class="stat-mini">
+                <span class="stat-mini-label">RSTR</span>
+                <span class="stat-mini-value">{{ analysis.rstr|floatformat:2 }}</span>
+            </div>
+            <div class="stat-mini">
+                <span class="stat-mini-label">RVR</span>
+                <span class="stat-mini-value">{{ analysis.rvr|floatformat:2 }}</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ CHARTS ============ -->
+    <section class="charts-row">
+        <div class="card">
+            <div class="card-header">
+                <h2>تعداد فروش ماهانه</h2>
+                <span class="card-sub">۱۲ ماه</span>
+            </div>
+            <div id="chart-qty" class="chart"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>درصد فروش ماهانه</h2>
+                <span class="card-sub">نسبت به کل فروش</span>
+            </div>
+            <div id="chart-pct" class="chart"></div>
+        </div>
+    </section>
+    
+    <!-- ============ BEST STORE ============ -->
+    {% if best_store %}
+    <section class="store-spotlight">
+        <div class="store-spotlight-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="6"/>
+                <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
+            </svg>
+        </div>
+
+        <div class="store-spotlight-main">
+            <span class="store-spotlight-eyebrow">بهترین فروشگاه</span>
+            <h3 class="store-spotlight-name">{{ best_store.name }}</h3>
+            <span class="store-spotlight-id">شناسه {{ best_store.sales_office_id }}</span>
+        </div>
+
+        <div class="store-spotlight-stats">
+            <div class="spotlight-stat">
+                <span class="spotlight-stat-value">{{ best_store.total_sold_12_months|floatformat:0 }}</span>
+                <span class="spotlight-stat-label">فروش ۱۲ ماهه</span>
+            </div>
+            <div class="spotlight-stat-divider"></div>
+            <div class="spotlight-stat">
+                <span class="spotlight-stat-value">{{ best_store.total_inventory|floatformat:0 }}</span>
+                <span class="spotlight-stat-label">موجودی</span>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+    <!-- ============ STORES TABLE ============ -->
+    <section class="card">
+        <div class="card-header">
+            <h2>فروشگاه‌ها</h2>
+            <span class="muted">{{ stores|length }} فروشگاه</span>
+        </div>
+        <div class="table-scroll">
+            <table class="stores-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>نام فروشگاه</th>
+                        <th>فروش ۱۲ ماهه</th>
+                        <th>موجودی</th>
+                        <th>سن (ماه)</th>
+                        <th>درصد تخفیف</th>
+                        <th>وضعیت</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in stores %}
+                        <tr {% if s.best_store %}class="best-store-row"{% endif %}>
+                            <td class="muted">{{ forloop.counter }}</td>
+                            <td>{{ s.name }}</td>
+                            <td class="num">{{ s.total_sold_12_months|floatformat:0 }}</td>
+                            <td class="num">{{ s.total_inventory|floatformat:0 }}</td>
+                            <td class="num">{{ s.age_in_months }}</td>
+                            <td class="num">{% if s.discount_percentage %}{{ s.discount_percentage|floatformat:1 }}٪{% else %}0٪{% endif %}</td>
+                            <td>
+                                {% if s.best_store %}
+                                    <span class="pill pill-best">بهترین</span>
+                                {% else %}
+                                    <span class="muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="8" class="state">هیچ فروشگاهی یافت نشد</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <h2>تحلیل محصول</h2>
+        </div>
+        <div class="metrics-cards">
+            <div class="metric-card">
+                <span class="metric-card-label">وضعیت</span>
+                <span class="metric-card-value">{{ analysis.status_tag|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">اقدام پیشنهادی</span>
+                <span class="metric-card-value">{{ analysis.action|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">اقدام بعدی</span>
+                <span class="metric-card-value">{{ analysis.next_recommended_action|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">اقدام فعال</span>
+                <span class="metric-card-value">{{ analysis.active_action|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">روند فروش</span>
+                <span class="metric-card-value">{{ analysis.vt|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">کیفیت تخفیف</span>
+                <span class="metric-card-value">{{ analysis.discount_quality|default:"—" }}</span>
+            </div>
+
+            <div class="metric-card is-good">
+                <span class="metric-card-label">RSTR</span>
+                <span class="metric-card-value">{{ analysis.rstr|floatformat:3|default:"—" }}</span>
+                <span class="metric-card-foot">نسبت فروش به میانگین دسته</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">CDR</span>
+                <span class="metric-card-value">{{ analysis.cdr|floatformat:3|default:"—" }}</span>
+                <span class="metric-card-foot">نسبت تعداد به میانگین دسته</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">RVR</span>
+                <span class="metric-card-value">{{ analysis.rvr|floatformat:3|default:"—" }}</span>
+                <span class="metric-card-foot">سرعت فعلی به سرعت مرجع</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">DD</span>
+                <span class="metric-card-value">{{ analysis.dd|floatformat:2|default:"—" }}</span>
+                <span class="metric-card-foot">اختلاف تخفیف با میانگین دسته</span>
+            </div>
+
+            <div class="metric-card is-warn">
+                <span class="metric-card-label">گپ سرعت</span>
+                <span class="metric-card-value">{{ analysis.velocity_gap|floatformat:3|default:"—" }}</span>
+                <span class="metric-card-foot">کمتر از ۱ به معنای خطر تمامنکردن است</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">سرعت فعلی</span>
+                <span class="metric-card-value">{{ analysis.current_velocity|floatformat:2|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">سرعت لازم</span>
+                <span class="metric-card-value">{{ analysis.required_future_velocity|floatformat:2|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">موجودی باقی‌مانده</span>
+                <span class="metric-card-value">{{ analysis.remaining_inventory|floatformat:0|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">ماه‌های باقی‌مانده</span>
+                <span class="metric-card-value">{{ analysis.remaining_months|default:"—" }} <small>ماه</small></span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">نرخ فروش تجمعی</span>
+                <span class="metric-card-value pct">{{ analysis.cumulative_sell_through|floatformat:2|default:"—" }}</span>
+            </div>
+
+            <div class="metric-card">
+                <span class="metric-card-label">تعداد کل اقدامات</span>
+                <span class="metric-card-value">{{ analysis.action_count_total|default:"0" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">اقدامات اندازه‌گیری‌شده</span>
+                <span class="metric-card-value">{{ analysis.action_count_measured|default:"0" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">آخرین اقدام</span>
+                <span class="metric-card-value">{{ analysis.last_action|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">نتیجه آخرین اقدام</span>
+                <span class="metric-card-value">{{ analysis.last_action_verdict|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">لیفت آخرین اقدام</span>
+                <span class="metric-card-value">{{ analysis.last_action_lift|floatformat:3|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">تأثیر حاشیه</span>
+                <span class="metric-card-value">{{ analysis.last_action_margin_impact|floatformat:3|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">اقدامات باقی‌مانده</span>
+                <span class="metric-card-value">{{ analysis.actions_remaining|default:"—" }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-card-label">تکمیل‌شده</span>
+                <span class="metric-card-value">
+                    {% if analysis.completed == 1 %}
+                        <span class="pill pill-ok">بله</span>
+                    {% else %}
+                        <span class="muted">خیر</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </section>
+    
+</div>
+
+<!-- ============ CHART DATA (passed from Django) ============ -->
+{{ monthly_labels|json_script:"monthly-labels" }}
+{{ monthly_qty|json_script:"monthly-qty" }}
+{{ monthly_pct|json_script:"monthly-pct" }}
+
+<!-- ============ HIGHCHARTS ============ -->
+<script src="{% static './js/highcharts.js' %}"></script>
+<script src="{% static './js/exporting.js' %}"></script>
+<script src="{% static './js/export-data.js' %}"></script>
+<script src="{% static './js/accessibility.js' %}"></script>
+<script>
+(function () {
+    const labels = JSON.parse(document.getElementById('monthly-labels').textContent);
+    const qty    = JSON.parse(document.getElementById('monthly-qty').textContent);
+    const pct    = JSON.parse(document.getElementById('monthly-pct').textContent);
+
+    // ---------- shared options ----------
+    const base = {
+        chart: {
+            backgroundColor: 'transparent',
+            style: { fontFamily: 'Yekan_Medium, sans-serif' },
+            height: 320,
+            spacing: [16, 16, 12, 16],
+        },
+        title: { text: null },
+        credits: { enabled: false },
+        legend: { enabled: false },
+        xAxis: {
+            categories: labels,
+            reversed: false,                    // 1..12 left → right
+            labels: { style: { color: '#64748b', fontSize: '12px' } },
+            lineColor: '#e2e8f0',
+            tickColor: '#e2e8f0',
+            tickLength: 4,
+        },
+        yAxis: {
+            title: { text: null },
+            gridLineColor: '#e2e8f0',
+            gridLineDashStyle: 'ShortDash',
+            labels: { style: { color: '#64748b', fontSize: '12px' } },
+        },
+        tooltip: {
+            useHTML: true,
+            backgroundColor: 'rgba(15,23,42,0.96)',
+            borderWidth: 0,
+            shadow: false,
+            style: { color: '#ffffff', direction: 'rtl', textAlign: 'right', fontSize: '12.5px' },
+            padding: 10,
+            borderRadius: 8,
+        },
+        plotOptions: {
+            series: {
+                animation: { duration: 500 },
+                marker: { enabled: false },
+            },
+        },
+    };
+
+    // ---------- chart 1: quantity (column) ----------
+    Highcharts.chart('chart-qty', Highcharts.merge(base, {
+        chart: { type: 'column' },
+        tooltip: {
+            pointFormat: 'ماه <b>{point.category}</b> — <b>{point.y:,.0f}</b> عدد',
+        },
+        plotOptions: {
+            column: {
+                borderRadius: 8,
+                borderWidth: 0,
+                pointPadding: 0.08,
+                groupPadding: 0.06,
+                color: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, '#10a37f'],
+                        [1, '#4a9eff'],
+                    ],
+                },
+            },
+        },
+        series: [{
+            name: 'تعداد',
+            data: qty,
+        }],
+    }));
+
+    // ---------- chart 2: percentage (spline) ----------
+    Highcharts.chart('chart-pct', Highcharts.merge(base, {
+        chart: { type: 'spline' },
+        tooltip: {
+            pointFormat: 'ماه <b>{point.category}</b> — <b>{point.y:,.2f}٪</b>',
+        },
+        yAxis: {
+            labels: { format: '{value}٪', style: { color: '#64748b', fontSize: '12px' } },
+        },
+        plotOptions: {
+            spline: {
+                lineWidth: 3,
+                color: '#10a37f',
+                marker: {
+                    enabled: true,
+                    radius: 4,
+                    fillColor: '#ffffff',
+                    lineColor: '#10a37f',
+                    lineWidth: 2,
+                    symbol: 'circle',
+                },
+            },
+            area: {
+                fillOpacity: 0.12,
+            },
+        },
+        series: [{
+            name: 'درصد',
+            data: pct,
+            type: 'area',
+            color: '#10a37f',
+            fillColor: {
+                linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                stops: [
+                    [0, 'rgba(16,163,127,0.35)'],
+                    [1, 'rgba(74,158,255,0.02)'],
+                ],
+            },
+        }],
+    }));
+})();
+</script>
+{% endblock %}

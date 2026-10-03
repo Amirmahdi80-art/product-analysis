@@ -75,7 +75,7 @@
                         </template>
                     </tr>
                 </thead>
-                <tbody>
+                <!-- <tbody>
                     <template x-if="loading">
                         <tr><td :colspan="columns.length" class="state">در حال بارگذاری…</td></tr>
                     </template>
@@ -87,6 +87,31 @@
                         <tr :class="{ 'best-store-row': row.best_store }">
                             <template x-for="col in columns" :key="col.key">
                                 <td :class="col.cls || ''" x-text="formatCell(row[col.key], col)"></td>
+                            </template>
+                        </tr>
+                    </template>
+                </tbody> -->
+                <tbody>
+                    <template x-if="loading">
+                        <tr><td :colspan="columns.length" class="state">در حال بارگذاری…</td></tr>
+                    </template>
+                    <template x-if="!loading && rows.length === 0">
+                        <tr><td :colspan="columns.length" class="state">هیچ رکوردی پیدا نشد</td></tr>
+                    </template>
+
+                    <template x-for="row in sortedRows" :key="row.id">
+                        <tr :class="{ 'best-store-row': row.best_store }">
+                            <template x-for="col in columns" :key="col.key">
+                                <td :class="col.cls || ''">
+                                    <template x-if="col.link">
+                                        <a class="cell-link"
+                                        :href="col.link + row[col.key] + '/'"
+                                        x-text="formatCell(row[col.key], col)"></a>
+                                    </template>
+                                    <template x-if="!col.link">
+                                        <span x-text="formatCell(row[col.key], col)"></span>
+                                    </template>
+                                </td>
                             </template>
                         </tr>
                     </template>
@@ -321,7 +346,7 @@ function storeAnalysisApp() {
         // ----- columns -----
         columns: [
             { key: 'id',                        label: 'شناسه' },
-            { key: 'product_code',              label: 'کد محصول' },
+            { key: 'product_code',              label: 'کد محصول'  ,  link: '/product/'},
             { key: 'sales_office_id',           label: 'شناسه فروشگاه' },
             { key: 'name',                      label: 'نام فروشگاه', cls: 'tag' },
             { key: 'category_code',             label: 'کد دسته‌بندی', cls: 'tag' },
@@ -654,7 +679,7 @@ function storeAnalysisApp() {
             const DELAY = 18;      // ms between ticks
             for (let i = 0; i < text.length; i += CHUNK) {
                 msg.content += text.slice(i, i + CHUNK);
-                this.$nextTick(() => this.scrollChat());
+                // this.$nextTick(() => this.scrollChat());
                 await new Promise(r => setTimeout(r, DELAY));
             }
             msg.typing = false;
@@ -682,10 +707,10 @@ function storeAnalysisApp() {
         },
 
         // Auto-scroll the chat to the bottom
-        // scrollChat() {
-        //     const el = this.$refs.chatScroll;
-        //     if (el) el.scrollTop = el.scrollHeight;
-        // },
+        scrollChat() {
+            const el = this.$refs.chatScroll;
+            if (el) el.scrollTop = el.scrollHeight;
+        },
 
     };
 }
