@@ -1,0 +1,697 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}اقدامات{% endblock %}
+
+{% block content %}
+<style>
+/* ============================================================
+   EXCEL UPLOAD BOX
+   ============================================================ */
+.xlsx-box {
+    background: var(--chrome);
+    border: 1px dashed var(--chrome-border);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color .15s, background-color .15s;
+    backdrop-filter: blur(8px);
+}
+
+.xlsx-box.is-drag {
+    border-color: #10a37f;
+    background: rgba(16, 163, 127, 0.06);
+}
+
+.xlsx-box-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.xlsx-box-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.xlsx-box-title h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--header-color);
+}
+
+.xlsx-box-title span {
+    font-size: 12px;
+    color: var(--chrome-muted);
+}
+
+.xlsx-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.xlsx-drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px 14px;
+    border-radius: 10px;
+    border: 1px dashed var(--chrome-border);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--chrome-muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color .15s, border-color .15s;
+}
+
+.xlsx-drop:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.xlsx-drop strong {
+    color: var(--header-color);
+}
+
+.xlsx-preview {
+    max-height: 260px;
+    overflow: auto;
+    border-radius: 10px;
+    border: 1px solid var(--chrome-border);
+}
+
+.xlsx-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    white-space: nowrap;
+}
+
+.xlsx-preview th,
+.xlsx-preview td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--chrome-border);
+    text-align: right;
+    color: var(--header-color);
+}
+
+.xlsx-preview th {
+    background: rgba(255, 255, 255, 0.04);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--chrome-muted);
+}
+
+.xlsx-preview tr.is-ok td:last-child { color: #7fe3c3; }
+.xlsx-preview tr.is-err td:last-child { color: #fca5a5; }
+
+.xlsx-summary {
+    display: flex;
+    gap: 14px;
+    font-size: 12.5px;
+    color: var(--chrome-muted);
+    flex-wrap: wrap;
+}
+
+.xlsx-summary strong { color: var(--header-color); }
+
+.xlsx-summary .ok { color: #7fe3c3; }
+.xlsx-summary .err { color: #fca5a5; }
+</style>
+
+<div class="app" x-data="actionsApp()" x-init="init()" dir="rtl">
+
+    <!-- ============ HEADER ============ -->
+    <header class="header">
+        <div class="header-left">
+            <h1>اقدامات</h1>
+            <span class="count" x-text="total.toLocaleString() + ' رکورد'"></span>
+        </div>
+        <div class="header-right">
+            <div class="search">
+                <input
+                    style="font-family: 'Yekan';"
+                    type="text"
+                    placeholder="جستجوی کد محصول..."
+                    x-model="searchInput"
+                    @keydown.enter="applyProductCode()"
+                >
+                <button class="btn btn-ghost" @click="applyProductCode()" :disabled="loading">جست‌وجو</button>
+                <button class="btn btn-ghost" @click="clearProductCode()" x-show="filters.product_code">پاک کردن</button>
+            </div>
+            <button class="btn btn-primary" @click="exportExcel()" :disabled="loading || total === 0">
+                <span x-show="!exporting">خروجی اکسل</span>
+                <span x-show="exporting" x-cloak>در حال استخراج...</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ============ XLSX UPLOAD BOX ============ -->
+    <section class="xlsx-box" :class="{ 'is-drag': xlsxDragging }"
+             @dragover.prevent="xlsxDragging = true"
+             @dragleave.prevent="xlsxDragging = false"
+             @drop.prevent="onXlsxDrop($event)">
+        <div class="xlsx-box-head">
+            <div class="xlsx-box-title">
+                <h3>بارگذاری فایل اکسل</h3>
+                <span>ستون‌ها: product_code، action_type، action_target، action_end_date، notes</span>
+            </div>
+            <div class="xlsx-actions">
+                <button class="btn btn-ghost" @click="$refs.xlsxInput.click()" type="button">انتخاب فایل</button>
+                <button class="btn btn-ghost" @click="clearXlsx()" x-show="xlsxRows.length > 0" type="button">پاک کردن</button>
+                <button class="btn btn-primary"
+                        @click="uploadXlsx()"
+                        :disabled="!xlsxRows.length || xlsxUploading || xlsxErrorCount > 0"
+                        x-show="xlsxRows.length > 0"
+                        type="button">
+                    <span x-show="!xlsxUploading">ثبت <span x-text="xlsxRows.length"></span> ردیف</span>
+                    <span x-show="xlsxUploading" x-cloak>در حال ثبت...</span>
+                </button>
+            </div>
+        </div>
+
+        <input type="file" accept=".xlsx,.xls" x-ref="xlsxInput" style="display:none" @change="onXlsxPick($event)">
+
+        <template x-if="!xlsxRows.length">
+            <div class="xlsx-drop" @click="$refs.xlsxInput.click()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>فایل اکسل را اینجا رها کنید یا <strong>انتخاب فایل</strong> کنید</span>
+            </div>
+        </template>
+
+        <template x-if="xlsxRows.length">
+            <div>
+                <div class="xlsx-summary">
+                    <span>کل: <strong x-text="xlsxRows.length"></strong></span>
+                    <span class="ok">معتبر: <strong x-text="xlsxValidCount"></strong></span>
+                    <span class="err" x-show="xlsxErrorCount > 0">نامعتبر: <strong x-text="xlsxErrorCount"></strong></span>
+                </div>
+                <div class="xlsx-preview">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>product_code</th>
+                                <th>action_type</th>
+                                <th>action_target</th>
+                                <th>action_end_date</th>
+                                <th>notes</th>
+                                <th>وضعیت</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(r, i) in xlsxRows" :key="i">
+                                <tr :class="r._error ? 'is-err' : 'is-ok'">
+                                    <td x-text="i + 1"></td>
+                                    <td x-text="r.product_code || '—'"></td>
+                                    <td x-text="r.action_type || '—'"></td>
+                                    <td x-text="r.action_target || '—'"></td>
+                                    <td x-text="r.action_end_date || '—'"></td>
+                                    <td x-text="r.notes || '—'"></td>
+                                    <td x-text="r._status || (r._error ? r._error : 'آماده')"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </template>
+    </section>
+
+    <!-- ============ FILTERS ============ -->
+    <section class="filters">
+        <div class="filter">
+            <label>نوع اقدام</label>
+            <select x-model="filters.action_type" @change="onFilterChange()">
+                <option value="">همه</option>
+                <template x-for="t in actionTypes" :key="t">
+                    <option :value="t" x-text="t"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="filter">
+            <label>نتیجه اقدام</label>
+            <select x-model="filters.action_verdict" @change="onFilterChange()">
+                <option value="">همه</option>
+                <template x-for="v in verdicts" :key="v">
+                    <option :value="v" x-text="v"></option>
+                </template>
+            </select>
+        </div>
+
+        <div class="filter">
+            <label>از تاریخ ثبت (شمسی)</label>
+            <input type="text" placeholder="1403/01/01" x-model="filters.created_from_j" @input.debounce.400ms="onFilterChange()">
+        </div>
+
+        <div class="filter">
+            <label>تا تاریخ ثبت (شمسی)</label>
+            <input type="text" placeholder="1403/12/29" x-model="filters.created_to_j" @input.debounce.400ms="onFilterChange()">
+        </div>
+
+        <div class="filter filter-actions">
+            <button class="btn btn-ghost" @click="resetFilters()" :disabled="!hasFilters">حذف همه فیلترها</button>
+        </div>
+    </section>
+
+    <!-- ============ TABLE ============ -->
+    <section class="table-wrap">
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <template x-for="col in columns" :key="col.key">
+                            <th
+                                @click="sortBy(col.key)"
+                                :class="{ sorted: sort.key === col.key }"
+                            >
+                                <span x-text="col.label"></span>
+                                <span class="sort-ind"
+                                    x-show="sort.key === col.key"
+                                    x-text="sort.dir === 'asc' ? '▲' : '▼'"></span>
+                            </th>
+                        </template>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-if="loading">
+                        <tr><td :colspan="columns.length" class="state">در حال بارگذاری…</td></tr>
+                    </template>
+                    <template x-if="!loading && rows.length === 0">
+                        <tr><td :colspan="columns.length" class="state">هیچ رکوردی پیدا نشد</td></tr>
+                    </template>
+
+                    <template x-for="row in sortedRows" :key="row.id">
+                        <tr>
+                            <template x-for="col in columns" :key="col.key">
+                                <td :class="col.cls || ''">
+                                    <template x-if="col.link">
+                                        <a class="cell-link"
+                                        :href="col.link + row[col.key] + '/'"
+                                        x-text="formatCell(row[col.key], col)"></a>
+                                    </template>
+                                    <template x-if="!col.link">
+                                        <span x-text="formatCell(row[col.key], col)"></span>
+                                    </template>
+                                </td>
+                            </template>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination" x-show="totalPages > 1">
+            <button class="btn btn-ghost" @click="goTo(totalPages)" :disabled="page >= totalPages || loading">آخر »</button>
+            <button class="btn btn-ghost" @click="goTo(page + 1)" :disabled="page >= totalPages || loading">بعدی ›</button>
+            <span class="page-info">صفحه <strong x-text="page"></strong> از <strong x-text="totalPages"></strong></span>
+            <button class="btn btn-ghost" @click="goTo(page - 1)" :disabled="page === 1 || loading">‹ قبلی</button>
+            <button class="btn btn-ghost" @click="goTo(1)" :disabled="page === 1 || loading">« اول</button>
+        </div>
+    </section>
+</div>
+
+<script>
+function actionsApp() {
+    return {
+        // ----- state -----
+        API_BASE: '/api/actions/',
+        PAGE_SIZE: 100,
+
+        rows: [],
+        total: 0,
+        page: 1,
+        totalPages: 1,
+        loading: false,
+        exporting: false,
+        searchInput: '',
+        filters: {
+            product_code: '',
+            action_type: '',
+            action_verdict: '',
+            created_from_j: '',   // Jalali string, e.g. "1403/01/01"
+            created_to_j: '',
+        },
+
+        sort: { key: 'action_created_date', dir: 'desc' },
+
+        // ----- filter option lists -----
+        actionTypes: ['آرشیو', 'پایان_فصل', 'خرید', 'تحقیق', 'تخفیف_50', 'کنترل', 'تخفیف_30', 'تخفیف_20', 'حذف'],
+        verdicts: ['موثر', 'فاقد_تاثیر', 'مبهم'],
+
+        // ----- columns -----
+        columns: [
+            { key: 'id',                       label: 'شناسه' },
+            { key: 'product_code', label: 'کد محصول', link: '/product/' },
+            { key: 'action_number',            label: 'شماره اقدام' },
+            { key: 'action_type',              label: 'نوع اقدام', cls: 'tag' },
+            { key: 'action_target',            label: 'هدف اقدام' },
+            { key: 'action_created_date',      label: 'تاریخ ثبت' },
+            { key: 'action_start_date',        label: 'تاریخ شروع' },
+            { key: 'action_end_date',          label: 'تاریخ پایان' },
+            { key: 'action_lift',              label: 'لیفت',     cls: 'num', dec: 4 },
+            { key: 'action_margin_impact',     label: 'تأثیر حاشیه', cls: 'num', dec: 4 },
+            { key: 'action_verdict',           label: 'نتیجه', cls: 'tag' },
+            { key: 'created_by',               label: 'ایجادکننده' },
+            { key: 'notes',                    label: 'یادداشت' },
+        ],
+
+        // ----- xlsx state -----
+        xlsxRows: [],
+        xlsxUploading: false,
+        xlsxDragging: false,
+
+        // ----- lifecycle -----
+        init() {
+            this.fetchPage(1);
+        },
+
+        // ----- helpers -----
+        get hasFilters() {
+            return Object.values(this.filters).some(v => v !== '');
+        },
+
+        get xlsxValidCount() {
+            return this.xlsxRows.filter(r => !r._error).length;
+        },
+
+        get xlsxErrorCount() {
+            return this.xlsxRows.filter(r => r._error).length;
+        },
+
+        get sortedRows() {
+            const { key, dir } = this.sort;
+            const mul = dir === 'asc' ? 1 : -1;
+            return [...this.rows].sort((a, b) => {
+                const va = a[key], vb = b[key];
+                if (va == null && vb == null) return 0;
+                if (va == null) return 1;
+                if (vb == null) return -1;
+                const na = Number(va), nb = Number(vb);
+                if (!isNaN(na) && !isNaN(nb)) return (na - nb) * mul;
+                return String(va).localeCompare(String(vb)) * mul;
+            });
+        },
+
+        formatCell(v, col) {
+            if (v === null || v === undefined || v === '') return '—';
+            if (col.cls && col.cls.includes('num') && col.dec !== undefined) {
+                const n = Number(v);
+                if (isNaN(n)) return v;
+                return n.toLocaleString(undefined, {
+                    minimumFractionDigits: col.dec,
+                    maximumFractionDigits: col.dec,
+                });
+            }
+            return v;
+        },
+
+        // ----- Jalali helpers -----
+        // Accept "1403/01/01", "1403-01-01", "1403.01.01"
+        parseJalali(str) {
+            if (!str) return null;
+            const s = String(str).trim();
+
+            // try Jalali: 1403/01/01 or 1403-01-01 or 1403.01.01
+            const m = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+            if (m) {
+                const [_, jy, jm, jd] = m;
+                try {
+                    if (typeof jalaali === 'undefined') {
+                        console.error('jalaali-js is not loaded');
+                        return null;
+                    }
+                    const g = jalaali.toGregorian(parseInt(jy, 10), parseInt(jm, 10), parseInt(jd, 10));
+                    return `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`;
+                } catch (e) {
+                    console.error('Jalali parse failed:', s, e);
+                    return null;
+                }
+            }
+
+            // also accept plain Gregorian YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+            return null;
+        },
+
+        applyProductCode() {
+            this.filters.product_code = this.searchInput.trim();
+            this.onFilterChange();
+        },
+
+        clearProductCode() {
+            this.searchInput = '';
+            this.filters.product_code = '';
+            this.onFilterChange();
+        },
+
+        // ----- data -----
+        async fetchPage(page) {
+            this.loading = true;
+            try {
+                const q = new URLSearchParams();
+                q.set('page', page);
+                q.set('page_size', this.PAGE_SIZE);
+
+                if (this.filters.product_code)      q.set('product_code', this.filters.product_code);
+                if (this.filters.action_type)       q.set('action_type', this.filters.action_type);
+                if (this.filters.action_verdict)    q.set('action_verdict', this.filters.action_verdict);
+
+                const from = this.parseJalali(this.filters.created_from_j);
+                if (from) q.set('created_from', from);
+
+                const to = this.parseJalali(this.filters.created_to_j);
+                if (to) q.set('created_to', to);
+
+                const res = await fetch(`${this.API_BASE}?${q.toString()}`, {
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                this.rows = data.results || [];
+                this.total = data.count || 0;
+                this.page = page;
+                this.totalPages = Math.max(1, Math.ceil(this.total / this.PAGE_SIZE));
+            } catch (e) {
+                console.error(e);
+                this.rows = [];
+                this.total = 0;
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async fetchAllForExport() {
+            const out = [];
+            const pageSize = 1000;
+            let page = 1;
+            while (true) {
+                const q = new URLSearchParams();
+                q.set('page', page);
+                q.set('page_size', pageSize);
+                if (this.filters.product_code)       q.set('product_code', this.filters.product_code);
+                if (this.filters.action_type)        q.set('action_type', this.filters.action_type);
+                if (this.filters.action_verdict)     q.set('action_verdict', this.filters.action_verdict);
+                const from = this.parseJalali(this.filters.created_from_j);
+                if (from) q.set('created_from', from);
+                const to = this.parseJalali(this.filters.created_to_j);
+                if (to) q.set('created_to', to);
+
+                const res = await fetch(`${this.API_BASE}?${q.toString()}`);
+                const data = await res.json();
+                const batch = data.results || [];
+                out.push(...batch);
+                if (!data.next || batch.length === 0) break;
+                page++;
+            }
+            return out;
+        },
+
+        // ----- actions -----
+        goTo(page) {
+            if (page < 1 || page > this.totalPages || this.loading) return;
+            this.fetchPage(page);
+        },
+
+        onFilterChange() {
+            this.fetchPage(1);
+        },
+
+        resetFilters() {
+            this.filters = {
+                product_code: '',
+                action_type: '',
+                action_verdict: '',
+                created_from_j: '',
+                created_to_j: '',
+            };
+            this.searchInput = '';
+            this.fetchPage(1);
+        },
+
+        sortBy(key) {
+            if (this.sort.key === key) {
+                this.sort.dir = this.sort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sort.key = key;
+                this.sort.dir = 'asc';
+            }
+        },
+
+        async exportExcel() {
+            this.exporting = true;
+            try {
+                const all = await this.fetchAllForExport();
+                const headers = this.columns.map(c => c.label);
+                const keys = this.columns.map(c => c.key);
+                const aoa = [headers, ...all.map(r => keys.map(k => r[k] ?? ''))];
+                const ws = XLSX.utils.aoa_to_sheet(aoa);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Actions');
+                const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+                XLSX.writeFile(wb, `actions_${stamp}.xlsx`);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.exporting = false;
+            }
+        },
+
+        // ----- xlsx upload -----
+        onXlsxPick(ev) {
+            const f = ev.target.files?.[0];
+            if (f) this.readXlsx(f);
+            ev.target.value = '';
+        },
+
+        onXlsxDrop(ev) {
+            this.xlsxDragging = false;
+            const f = ev.dataTransfer?.files?.[0];
+            if (f) this.readXlsx(f);
+        },
+
+        async readXlsx(file) {
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+            const REQUIRED = ['product_code', 'action_type'];
+            const ALLOWED = ['product_code', 'action_type', 'action_target', 'action_end_date', 'notes'];
+
+            this.xlsxRows = raw.map((r, i) => {
+                const row = { _status: null, _error: null };
+                for (const k of ALLOWED) {
+                    row[k] = r[k] !== undefined && r[k] !== null ? String(r[k]).trim() : '';
+                }
+
+                // required check
+                for (const k of REQUIRED) {
+                    if (!row[k]) {
+                        row._error = `فیلد «${k}» خالی است`;
+                        break;
+                    }
+                }
+
+                // date check — accept Jalali or Gregorian
+                if (!row._error && row.action_end_date) {
+                    const j = this.parseJalali(row.action_end_date);
+                    const g = /^\d{4}-\d{2}-\d{2}$/.test(row.action_end_date) ? row.action_end_date : null;
+                    if (j) {
+                        row._dateIso = j;
+                    } else if (g) {
+                        row._dateIso = g;
+                    } else {
+                        row._error = 'تاریخ پایان نامعتبر است';
+                    }
+                }
+
+                return row;
+            });
+        },
+
+        clearXlsx() {
+            this.xlsxRows = [];
+            this.xlsxUploading = false;
+        },
+
+        async uploadXlsx() {
+            if (!this.xlsxRows.length || this.xlsxUploading) return;
+            if (this.xlsxErrorCount > 0) return;
+
+            this.xlsxUploading = true;
+
+            for (let i = 0; i < this.xlsxRows.length; i++) {
+                const r = this.xlsxRows[i];
+                r._status = 'در حال ارسال…';
+
+                const payload = {
+                    product_code: r.product_code,
+                    action_type: r.action_type,
+                    action_target: r.action_target || null,
+                    action_end_date: r._dateIso || null,
+                    notes: r.notes || null,
+                };
+
+                try {
+                    const res = await fetch(this.API_BASE, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // 'X-CSRFToken': getCookie('csrftoken'),  // add if not csrf_exempt
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        r._error = this._flattenErrors(data) || `HTTP ${res.status}`;
+                        r._status = 'خطا: ' + r._error;
+                    } else {
+                        r._status = 'ثبت شد';
+                        r._error = null;
+                        r._savedId = data.id;
+                    }
+                } catch (e) {
+                    r._error = e.message || 'خطای شبکه';
+                    r._status = 'خطا: ' + r._error;
+                }
+                // trigger reactivity
+                this.xlsxRows = [...this.xlsxRows];
+            }
+
+            this.xlsxUploading = false;
+            // refresh table to reflect new records
+            this.fetchPage(1);
+        },
+
+        _flattenErrors(obj) {
+            if (!obj || typeof obj !== 'object') return null;
+            const parts = [];
+            for (const [k, v] of Object.entries(obj)) {
+                if (Array.isArray(v)) parts.push(`${k}: ${v.join('، ')}`);
+                else if (typeof v === 'string') parts.push(`${k}: ${v}`);
+                else parts.push(`${k}: ${JSON.stringify(v)}`);
+            }
+            return parts.join(' | ');
+        },
+    };
+}
+</script>
+{% endblock %}

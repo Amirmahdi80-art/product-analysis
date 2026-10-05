@@ -2,6 +2,7 @@ from rest_framework.routers import DefaultRouter
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+
 from .views import (
     TwelveMonthAnalysisViewSet,
     TwelveMonthAnalysisStoreViewSet,
@@ -36,3 +37,5 @@ router.register(
 urlpatterns = [
     path('ai/analyze/', ai_analyze, name='ai-analyze'),
 ] + router.urls
+
+

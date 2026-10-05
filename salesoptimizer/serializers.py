@@ -40,3 +40,16 @@ class ActionSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id', 'action_number')
         validators = []
+        extra_kwargs = {
+            'action_created_date':  {'required': False},
+            'action_start_date':    {'required': False},
+            'action_end_date':      {'required': False, 'allow_null': True},
+            'action_target':        {'required': False, 'allow_null': True},
+            'measurement_start_date': {'required': False, 'allow_null': True},
+            'measurement_end_date':   {'required': False, 'allow_null': True},
+            'action_lift':            {'required': False, 'allow_null': True},
+            'action_margin_impact':   {'required': False, 'allow_null': True},
+            'action_verdict':         {'required': False, 'allow_null': True},
+            'created_by':             {'required': False, 'allow_null': True},
+            'notes':                  {'required': False, 'allow_null': True},
+        }

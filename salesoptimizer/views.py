@@ -13,6 +13,9 @@ from rest_framework.permissions import IsAuthenticated
 from datetime import datetime, timedelta
 from django.db.models import Max
 from django.db import transaction
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.permissions import AllowAny
 
 class ProductFilterMixin:
     """
@@ -278,6 +281,7 @@ def product_detail_page(request, product_code):
     return render(request, 'product_detail.html', context)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ActionViewSet(viewsets.ModelViewSet):
     """
     GET /api/actions/                          → list (paginated)
@@ -299,7 +303,8 @@ class ActionViewSet(viewsets.ModelViewSet):
     queryset = Action.objects.all().order_by('-action_created_date', '-id')
     serializer_class = ActionSerializer
     lookup_field = 'id'
-    permission_classes = [IsAuthenticated]
+    authentication_classes = []
+    permission_classes = [AllowAny] 
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -310,9 +315,9 @@ class ActionViewSet(viewsets.ModelViewSet):
         if action_type:
             qs = qs.filter(action_type=action_type)
 
-        measurement_status = p.get('measurement_status')
-        if measurement_status:
-            qs = qs.filter(measurement_status=measurement_status)
+        product_code = p.get('product_code')
+        if product_code:
+            qs = qs.filter(product_code=product_code)
 
         action_verdict = p.get('action_verdict')
         if action_verdict:
@@ -386,3 +391,7 @@ class ActionViewSet(viewsets.ModelViewSet):
                 extra['created_by'] = self.request.user.username
 
             serializer.save(**extra)
+
+
+def actions_page(request):
+    return render(request, 'actions_list.html')
