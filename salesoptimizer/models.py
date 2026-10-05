@@ -1530,3 +1530,89 @@ class AnalysisGradeOne(models.Model):
         db_table = 'analysis_grade_one'
         verbose_name = 'تحلیل'
         verbose_name_plural = 'تحلیل'
+
+
+class Action(models.Model):
+    id = models.BigAutoField(
+        db_column='id',
+        primary_key=True,
+        verbose_name='شناسه',
+    )
+    product_code = models.CharField(
+        db_column='product_code',
+        max_length=64,
+        verbose_name='کد محصول',
+    )
+    action_number = models.IntegerField(
+        db_column='action_number',
+        verbose_name='شماره اقدام',
+    )
+    action_type = models.CharField(
+        db_column='action_type',
+        max_length=64,
+        verbose_name='نوع اقدام',
+    )
+    action_target = models.CharField(
+        db_column='action_target',
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name='هدف اقدام',
+    )
+    action_created_date = models.DateField(
+        db_column='action_created_date',
+        verbose_name='تاریخ ثبت اقدام',
+        auto_now_add=True
+    )
+    action_start_date = models.DateField(
+        db_column='action_start_date',
+        verbose_name='تاریخ شروع اقدام',
+    )
+    action_end_date = models.DateField(
+        db_column='action_end_date',
+        null=True,
+        blank=True,
+        verbose_name='تاریخ پایان اقدام',
+    )
+    action_lift = models.DecimalField(
+        db_column='action_lift',
+        max_digits=12,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name='لیفت اقدام',
+    )
+    action_margin_impact = models.DecimalField(
+        db_column='action_margin_impact',
+        max_digits=14,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        verbose_name='تأثیر حاشیه اقدام',
+    )
+    action_verdict = models.CharField(
+        db_column='action_verdict',
+        max_length=16,
+        null=True,
+        blank=True,
+        verbose_name='نتیجه اقدام',
+    )
+    created_by = models.CharField(
+        db_column='created_by',
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name='ایجادکننده',
+    )
+    notes = models.TextField(
+        db_column='notes',
+        null=True,
+        blank=True,
+        verbose_name='یادداشت‌ها',
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'actions'
+        verbose_name = 'اقدام'
+        verbose_name_plural = 'اقدامات'

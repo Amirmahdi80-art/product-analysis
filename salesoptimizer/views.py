@@ -1,15 +1,18 @@
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 
-from .models import TwelveMonthAnalysis, TwelveMonthAnalysisStore, AnalysisGradeOne, TwelveMonthAnalysis, TwelveMonthAnalysisStore
+from .models import TwelveMonthAnalysis, TwelveMonthAnalysisStore, AnalysisGradeOne, TwelveMonthAnalysis, TwelveMonthAnalysisStore, Action
 from .serializers import (
     TwelveMonthAnalysisSerializer,
     TwelveMonthAnalysisStoreSerializer,
-    AnalysisGradeOneSerializer
+    AnalysisGradeOneSerializer,
+    ActionSerializer
 )
-from django.shortcuts import get_object_or_404, render
-
+from rest_framework.permissions import IsAuthenticated
+from datetime import datetime, timedelta
+from django.db.models import Max
+from django.db import transaction
 
 class ProductFilterMixin:
     """
@@ -85,7 +88,7 @@ class TwelveMonthAnalysisStoreViewSet(ProductFilterMixin, viewsets.ReadOnlyModel
         return qs
 
 
-class AnalysisGradeOneViewSet(ProductFilterMixin, viewsets.ReadOnlyModelViewSet):
+class AnalysisGradeOneViewSet(ProductFilterMixin, viewsets.ModelViewSet):
     """
     GET /api/analysis-grade-one/                       → list
     GET /api/analysis-grade-one/?product_code=...      → filter by product (single/bulk)
@@ -100,7 +103,7 @@ class AnalysisGradeOneViewSet(ProductFilterMixin, viewsets.ReadOnlyModelViewSet)
     queryset = AnalysisGradeOne.objects.all()
     serializer_class = AnalysisGradeOneSerializer
     lookup_field = 'product_code'
-
+    permission_classes = [IsAuthenticated]
     def get_queryset(self):
         qs = super().get_queryset()  # product_code, category_code, from/to handled by the mixin
         p = self.request.query_params
@@ -236,6 +239,31 @@ def product_detail_page(request, product_code):
         float(product.twelveth_month_per or 0),
     ]
 
+    # --- AI widget payloads ---
+    product_data = {
+        'product_code': product.product_code,
+        'name': analysis.name or '',
+        'category_code': product.category_code,
+        'total_inventory': float(product.total_inventory or 0),
+        'age_in_months': product.age_in_months,
+        'total_sold_12_months': float(product.total_sold_12_months or 0),
+        'discount_percentage': float(product.discount_percentage or 0),
+        'first_show_date': product.first_show_date.isoformat() if product.first_show_date else None,
+    }
+
+    stores_data = [
+        {
+            'sales_office_id': s.sales_office_id,
+            'name': s.name,
+            'total_inventory': float(s.total_inventory or 0),
+            'age_in_months': s.age_in_months,
+            'total_sold_12_months': float(s.total_sold_12_months or 0),
+            'best_store': bool(s.best_store),
+        }
+        for s in stores
+    ]
+
+
     context = {
         'product': product,
         'stores': stores,
@@ -244,6 +272,117 @@ def product_detail_page(request, product_code):
         'monthly_labels': monthly_labels,
         'monthly_qty': monthly_qty,
         'monthly_pct': monthly_pct,
+        'stores_data': stores_data,
+        'product_data': product_data
     }
     return render(request, 'product_detail.html', context)
 
+
+class ActionViewSet(viewsets.ModelViewSet):
+    """
+    GET /api/actions/                          → list (paginated)
+    GET /api/actions/{id}/                     → retrieve one
+
+    Filters (all optional, all combinable):
+      ?action_type=تخفیف_20
+      ?measurement_status=کامل_شده
+      ?action_verdict=موثر
+
+    Date range filters (YYYY-MM-DD, inclusive):
+      ?created_from=2024-01-01&created_to=2024-06-30
+      ?start_from=2024-01-01&start_to=2024-06-30
+      ?end_from=2024-01-01&end_to=2024-06-30
+
+    Also accepts the shorter aliases:
+      ?from=<date>&to=<date>   → applies to action_created_date
+    """
+    queryset = Action.objects.all().order_by('-action_created_date', '-id')
+    serializer_class = ActionSerializer
+    lookup_field = 'id'
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        p = self.request.query_params
+
+        # --- categorical filters ---
+        action_type = p.get('action_type')
+        if action_type:
+            qs = qs.filter(action_type=action_type)
+
+        measurement_status = p.get('measurement_status')
+        if measurement_status:
+            qs = qs.filter(measurement_status=measurement_status)
+
+        action_verdict = p.get('action_verdict')
+        if action_verdict:
+            qs = qs.filter(action_verdict=action_verdict)
+
+        # --- date ranges ---
+        # created
+        created_from = p.get('created_from') or p.get('from')
+        if created_from:
+            d = parse_date(created_from)
+            if d:
+                qs = qs.filter(action_created_date__gte=d)
+
+        created_to = p.get('created_to') or p.get('to')
+        if created_to:
+            d = parse_date(created_to)
+            if d:
+                qs = qs.filter(action_created_date__lte=d)
+
+        # start
+        start_from = p.get('start_from')
+        if start_from:
+            d = parse_date(start_from)
+            if d:
+                qs = qs.filter(action_start_date__gte=d)
+
+        start_to = p.get('start_to')
+        if start_to:
+            d = parse_date(start_to)
+            if d:
+                qs = qs.filter(action_start_date__lte=d)
+
+        # end
+        end_from = p.get('end_from')
+        if end_from:
+            d = parse_date(end_from)
+            if d:
+                qs = qs.filter(action_end_date__gte=d)
+
+        end_to = p.get('end_to')
+        if end_to:
+            d = parse_date(end_to)
+            if d:
+                qs = qs.filter(action_end_date__lte=d)
+
+        return qs
+
+    def perform_create(self, serializer):
+        product_code = serializer.validated_data['product_code']
+
+        with transaction.atomic():
+            # Lock the rows for this product so two concurrent POSTs
+            # can't pick the same number.
+            last = (
+                Action.objects
+                .select_for_update()
+                .filter(product_code=product_code)
+                .aggregate(m=Max('action_number'))
+            )['m'] or 0
+            next_number = last + 1
+
+            extra = {'action_number': next_number}
+            today = datetime.now().date()
+            if not serializer.validated_data.get('action_created_date'):
+                extra['action_created_date'] = today
+            if not serializer.validated_data.get('action_start_date'):
+                extra['action_start_date'] = today
+            if not serializer.validated_data.get('action_end_date'):
+                extra['action_end_date'] = today + timedelta(days=30)
+            if not serializer.validated_data.get('created_by') and self.request.user.is_authenticated:
+                extra['created_by'] = self.request.user.username
+
+            serializer.save(**extra)

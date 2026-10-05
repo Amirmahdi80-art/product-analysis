@@ -1116,12 +1116,59 @@
         </div>
     </section>
     
+    <!-- ============ AI FAB ============ -->
+    <button id="ai-fab" class="ai-fab" type="button" aria-label="باز کردن دستیار">
+        <svg id="ai-fab-icon-open" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a5 5 0 0 0-5 5v1H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5z"/>
+            <circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/>
+        </svg>
+        <svg id="ai-fab-icon-close" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+    </button>
+
+    <!-- ============ AI DRAWER ============ -->
+    <aside id="ai-drawer" class="ai-drawer" dir="rtl">
+        <header class="ai-drawer-header">
+            <div class="ai-drawer-title">
+                <span class="ai-dot"></span>
+                <h2>دستیار تحلیل</h2>
+            </div>
+            <button id="ai-close" class="ai-drawer-close" type="button" aria-label="بستن">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </header>
+
+        <section class="ai-prompt">
+            <label class="ai-prompt-label">
+                پرامپت (قابل ویرایش)
+                <span class="ai-prompt-hint" id="ai-row-count"></span>
+            </label>
+            <textarea id="ai-prompt-input" class="ai-prompt-input" rows="10" spellcheck="false"></textarea>
+            <div class="ai-prompt-actions">
+                <button id="ai-reset" class="btn btn-ghost" type="button">بازنشانی</button>
+                <button id="ai-send" class="btn btn-primary" type="button">
+                    <span id="ai-send-label">ارسال</span>
+                </button>
+            </div>
+        </section>
+
+        <section id="ai-chat" class="ai-chat">
+            <div class="ai-chat-empty" id="ai-chat-empty">برای شروع گفتگو روی «ارسال» کلیک کنید</div>
+        </section>
+    </aside>
 </div>
 
 <!-- ============ CHART DATA (passed from Django) ============ -->
 {{ monthly_labels|json_script:"monthly-labels" }}
 {{ monthly_qty|json_script:"monthly-qty" }}
 {{ monthly_pct|json_script:"monthly-pct" }}
+
+<!-- ============ AI DATA ============ -->
+{{ product_data|json_script:"product-data" }}
+{{ stores_data|json_script:"stores-data" }}
 
 <!-- ============ HIGHCHARTS ============ -->
 <script src="{% static './js/highcharts.js' %}"></script>
@@ -1243,6 +1290,241 @@
             },
         }],
     }));
+})();
+</script>
+<script>
+(function () {
+    'use strict';
+
+    // ---------- load data from the blobs ----------
+    let product = null;
+    let stores = [];
+    try {
+        product = JSON.parse(document.getElementById('product-data').textContent);
+        stores  = JSON.parse(document.getElementById('stores-data').textContent);
+    } catch (e) {
+        console.error('Failed to load product/store blobs:', e);
+    }
+
+    // ---------- element refs ----------
+    const fab        = document.getElementById('ai-fab');
+    const fabOpen    = document.getElementById('ai-fab-icon-open');
+    const fabClose   = document.getElementById('ai-fab-icon-close');
+    const drawer     = document.getElementById('ai-drawer');
+    const closeBtn   = document.getElementById('ai-close');
+    const promptEl   = document.getElementById('ai-prompt-input');
+    const resetBtn   = document.getElementById('ai-reset');
+    const sendBtn    = document.getElementById('ai-send');
+    const sendLabel  = document.getElementById('ai-send-label');
+    const rowCount   = document.getElementById('ai-row-count');
+    const chatEl     = document.getElementById('ai-chat');
+    const chatEmpty  = document.getElementById('ai-chat-empty');
+
+    // ---------- state ----------
+    let isOpen = false;
+    let isLoading = false;
+
+    // ---------- default prompt ----------
+    const DEFAULT_PROMPT = [
+        'تو یک تحلیل‌گر موجودی و فروش فروشگاهی هستی. یک آرایه JSON شامل یک محصول و تمام فروشگاه‌هایی که آن محصول را می‌فروشند به تو داده می‌شود.',
+        'ستون total_sold_12_months مجموع فروش ۱۲ ماه گذشته در آن فروشگاه است.',
+        'ستون best_store نشان می‌دهد که این فروشگاه بهترین فروشنده آن محصول بوده است یا نه.',
+        '',
+        'وظیفه تو تحلیل تفاوت‌های فروش بین فروشگاه‌های این محصول است. مشخصاً:',
+        '',
+        '۱) فروش تمام فروشگاه‌های این محصول را با هم مقایسه کن.',
+        '۲) اگر فروش بهترین فروشگاه فقط ۱ یا ۲ عدد بیشتر از فروشگاه دوم است، بگو انتقال موجودی به بهترین فروشگاه توجیه منطقی ندارد.',
+        '۳) اگر total_sold_12_months برابر ۱ یا ۲ است، بگو تصمیم‌گیری درباره بهترین فروشگاه معنادار نیست.',
+        '۴) در پایان، یک جمع‌بندی کوتاه بده: آیا این محصول واقعاً فروشگاه برتر مشخص دارد یا به دلیل اختلاف کم یا فروش ناچیز قابل تصمیم‌گیری نیست.',
+        '',
+        'داده‌ها را بازمحاسبه نکن و قانون جدید نساز. پاسخ را کاملاً به فارسی بده.',
+    ].join('\n');
+
+    // ---------- UI helpers ----------
+    function updateRowCount() {
+        const n = (product ? 1 : 0) + stores.length;
+        rowCount.textContent = ' ' + n + ' ردیف آماده ارسال';
+    }
+
+    function openDrawer() {
+        isOpen = true;
+        drawer.classList.add('ai-drawer-open');
+        fab.classList.add('ai-fab-open');
+        fabOpen.style.display = 'none';
+        fabClose.style.display = '';
+    }
+
+    function closeDrawer() {
+        isOpen = false;
+        drawer.classList.remove('ai-drawer-open');
+        fab.classList.remove('ai-fab-open');
+        fabOpen.style.display = '';
+        fabClose.style.display = 'none';
+    }
+
+    function toggleDrawer() {
+        isOpen ? closeDrawer() : openDrawer();
+    }
+
+    // ---------- chat rendering ----------
+    function appendMessage(role, content, typing) {
+        const wrap = document.createElement('div');
+        wrap.className = 'ai-msg ' + (role === 'user' ? 'ai-msg-user' : 'ai-msg-assistant');
+
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-msg-bubble';
+
+        const text = document.createElement('span');
+        text.className = 'ai-msg-text';
+        if (role === 'assistant') {
+            text.innerHTML = renderContent(content);
+        } else {
+            text.textContent = content;
+        }
+        bubble.appendChild(text);
+
+        if (role === 'assistant' && typing) {
+            const caret = document.createElement('span');
+            caret.className = 'ai-caret';
+            caret.setAttribute('aria-hidden', 'true');
+            bubble.appendChild(caret);
+            wrap._caret = caret;
+            wrap._text = text;
+        } else {
+            wrap._text = text;
+        }
+        wrap.appendChild(bubble);
+        chatEl.appendChild(wrap);
+        console.log('APPENDED V99:', wrap.outerHTML, '| bubble.children.length =', bubble.children.length);
+        if (chatEmpty) chatEmpty.style.display = 'none';
+
+        scrollChat();
+        return wrap;
+    }
+
+    function renderContent(str) {
+        if (!str) return '';
+        let s = str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        s = s.replace(/\n/g, '<br>');
+        return s;
+    }
+
+    function scrollChat() {
+        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    // ---------- payload projection ----------
+    function buildPayload() {
+        const productPayload = product ? {
+            product_code: product.product_code,
+            name: product.name || null,
+            category_code: product.category_code,
+            total_inventory: product.total_inventory,
+            age_in_months: product.age_in_months,
+            total_sold_12_months: product.total_sold_12_months,
+            discount_percentage: product.discount_percentage,
+        } : null;
+
+        const storesPayload = stores.map(s => ({
+            product_code: product ? product.product_code : null,
+            sales_office_id: s.sales_office_id,
+            name: s.name,
+            total_inventory: s.total_inventory,
+            age_in_months: s.age_in_months,
+            total_sold_12_months: s.total_sold_12_months,
+            best_store: s.best_store,
+        }));
+
+        return productPayload ? [productPayload, ...storesPayload] : storesPayload;
+    }
+
+    // ---------- typewriter ----------
+    async function typeInto(node, text, caretEl) {
+        const CHUNK = 3;
+        const DELAY = 18;
+        node.innerHTML = '';
+        for (let i = 0; i < text.length; i += CHUNK) {
+            node.innerHTML = renderContent(text.slice(0, i + CHUNK));
+            scrollChat();
+            await new Promise(r => setTimeout(r, DELAY));
+        }
+        if (caretEl && caretEl.parentNode) caretEl.parentNode.removeChild(caretEl);
+    }
+
+    // ---------- submit ----------
+    async function sendPrompt() {
+        if (isLoading) return;
+        const prompt = promptEl.value.trim();
+        if (!prompt) return;
+
+        const totalRows = (product ? 1 : 0) + stores.length;
+        if (totalRows === 0) return;
+        openDrawer();
+        isLoading = true;
+        sendBtn.disabled = true;
+        sendLabel.textContent = 'در حال دریافت…';
+
+        appendMessage('user', prompt, false);
+        const assistantNode = appendMessage('assistant', '', true);
+        console.log('assistantNode:', assistantNode);
+        console.log('assistantNode._text:', assistantNode._text);
+        console.log('assistantNode._caret:', assistantNode._caret);
+
+        try {
+            const res = await fetch('/api/ai/analyze/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    rows: buildPayload(),
+                }),
+            });
+            const data = await res.json();
+            console.log('data:', data);
+            console.log('typeof data.reply:', typeof data.reply);
+            console.log('data.reply length:', data.reply ? data.reply.length : 0);
+            if (!res.ok) {
+                throw new Error(data.error || ('HTTP ' + res.status));
+            }
+            await typeInto(assistantNode._text, data.reply, assistantNode._caret);
+        } catch (e) {
+            console.error(e);
+            if (assistantNode._caret && assistantNode._caret.parentNode) {
+                assistantNode._caret.parentNode.removeChild(assistantNode._caret);
+            }
+            assistantNode._text.textContent = 'خطا در دریافت پاسخ. لطفاً دوباره تلاش کنید.';
+        } finally {
+            isLoading = false;
+            sendBtn.disabled = false;
+            sendLabel.textContent = 'ارسال';
+        }
+    }
+
+    // ---------- wire up ----------
+    promptEl.value = DEFAULT_PROMPT;
+    updateRowCount();
+
+    fab.addEventListener('click', toggleDrawer);
+    closeBtn.addEventListener('click', closeDrawer);
+    resetBtn.addEventListener('click', () => { promptEl.value = DEFAULT_PROMPT; });
+    sendBtn.addEventListener('click', sendPrompt);
+
+    // Enter submits if not shifted
+    promptEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendPrompt();
+        }
+    });
+
+    // Esc closes
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isOpen) closeDrawer();
+    });
 })();
 </script>
 {% endblock %}

@@ -6,6 +6,7 @@ from .views import (
     TwelveMonthAnalysisViewSet,
     TwelveMonthAnalysisStoreViewSet,
     AnalysisGradeOneViewSet,
+    ActionViewSet,
     ai_analyze
 )
 
@@ -24,6 +25,12 @@ router.register(
     r'analysis-grade-one',
     AnalysisGradeOneViewSet,
     basename='analysis-grade-one',
+)
+
+router.register(
+    r'actions',
+    ActionViewSet,
+    basename='actions',
 )
 
 urlpatterns = [
