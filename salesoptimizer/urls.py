@@ -8,34 +8,32 @@ from .views import (
     TwelveMonthAnalysisStoreViewSet,
     AnalysisGradeOneViewSet,
     ActionViewSet,
-    ai_analyze
+    ai_analyze,
 )
 
 router = DefaultRouter()
 router.register(
-    r'twelve-month-analysis',
+    r"twelve-month-analysis",
     TwelveMonthAnalysisViewSet,
-    basename='twelve-month-analysis',
+    basename="twelve-month-analysis",
 )
 router.register(
-    r'twelve-month-analysis-store',
+    r"twelve-month-analysis-store",
     TwelveMonthAnalysisStoreViewSet,
-    basename='twelve-month-analysis-store',
+    basename="twelve-month-analysis-store",
 )
 router.register(
-    r'analysis-grade-one',
+    r"analysis-grade-one",
     AnalysisGradeOneViewSet,
-    basename='analysis-grade-one',
+    basename="analysis-grade-one",
 )
 
 router.register(
-    r'actions',
+    r"actions",
     ActionViewSet,
-    basename='actions',
+    basename="actions",
 )
 
 urlpatterns = [
-    path('ai/analyze/', ai_analyze, name='ai-analyze'),
+    path("ai/analyze/", ai_analyze, name="ai-analyze"),
 ] + router.urls
-
-

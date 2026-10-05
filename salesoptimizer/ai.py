@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-AI_API_KEY = os.environ.get('AI_API_KEY')
+AI_API_KEY = os.environ.get("AI_API_KEY")
 if not AI_API_KEY:
     raise RuntimeError("AI_API_KEY is not set. Add it to your .env file.")
 
@@ -16,6 +16,7 @@ client = OpenAI(api_key=AI_API_KEY, base_url="https://api.deepseek.com")
 
 def ai_give_answers(messages, temperature=0.4, max_tokens=4000, retries=3):
     import time
+
     last_exc = None
     for attempt in range(retries):
         try:
@@ -34,13 +35,13 @@ def ai_give_answers(messages, temperature=0.4, max_tokens=4000, retries=3):
             return response.choices[0].message.content
         except (RateLimitError, APITimeoutError) as e:
             last_exc = e
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
         except APIError as e:
             status = getattr(e, "status_code", None)
             if status and 400 <= status < 500:
                 raise  # don't retry client errors
             last_exc = e
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
     raise last_exc
 
 
