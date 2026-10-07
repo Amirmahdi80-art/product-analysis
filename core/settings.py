@@ -37,22 +37,22 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'corsheaders',
-    'rest_framework',
-    "salesoptimizer"
+    "corsheaders",
+    "rest_framework",
+    "salesoptimizer",
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'salesoptimizer.pagination.StandardPagination',
-    'PAGE_SIZE': 100,
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
+    "DEFAULT_PAGINATION_CLASS": "salesoptimizer.pagination.StandardPagination",
+    "PAGE_SIZE": 100,
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
     ],
 }
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -137,7 +137,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/stable/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = "/static/"
 
 # Directory where Django will look for static files during development
 STATICFILES_DIRS = [
@@ -168,7 +168,7 @@ import django.template.context
 if sys.version_info >= (3, 14):
     # Save original methods
     original_copy = django.template.context.Context.__copy__
-    
+
     def patched_copy(self):
         """Patched __copy__ method for Python 3.14 compatibility"""
         try:
@@ -178,52 +178,53 @@ if sys.version_info >= (3, 14):
             # Fallback for Python 3.14
             # Create a new context manually
             from django.template.context import Context
+
             new_context = Context()
             # Copy all attributes manually
-            if hasattr(self, 'dicts'):
+            if hasattr(self, "dicts"):
                 new_context.dicts = self.dicts[:]
             else:
                 # For Python 3.14, iterate through items
                 for key, value in self.items():
                     new_context[key] = value
             # Copy other important attributes
-            if hasattr(self, 'autoescape'):
+            if hasattr(self, "autoescape"):
                 new_context.autoescape = self.autoescape
-            if hasattr(self, 'use_l10n'):
+            if hasattr(self, "use_l10n"):
                 new_context.use_l10n = self.use_l10n
-            if hasattr(self, 'use_tz'):
+            if hasattr(self, "use_tz"):
                 new_context.use_tz = self.use_tz
-            if hasattr(self, 'template_name'):
+            if hasattr(self, "template_name"):
                 new_context.template_name = self.template_name
-            if hasattr(self, 'render_context'):
+            if hasattr(self, "render_context"):
                 new_context.render_context = self.render_context
             return new_context
-    
+
     # Replace the __copy__ method
     django.template.context.Context.__copy__ = patched_copy
-    
+
     # Also patch the new method if it exists
-    if hasattr(django.template.context.Context, 'new'):
+    if hasattr(django.template.context.Context, "new"):
         original_new = django.template.context.Context.new
-        
+
         def patched_new(self, values=None):
             """Patched new method for Python 3.14 compatibility"""
             try:
                 return original_new(self, values)
             except AttributeError:
                 from django.template.context import Context
+
                 new_context = Context(values)
-                if hasattr(self, 'autoescape'):
+                if hasattr(self, "autoescape"):
                     new_context.autoescape = self.autoescape
-                if hasattr(self, 'use_l10n'):
+                if hasattr(self, "use_l10n"):
                     new_context.use_l10n = self.use_l10n
-                if hasattr(self, 'use_tz'):
+                if hasattr(self, "use_tz"):
                     new_context.use_tz = self.use_tz
-                if hasattr(self, 'template_name'):
+                if hasattr(self, "template_name"):
                     new_context.template_name = self.template_name
-                if hasattr(self, 'render_context'):
+                if hasattr(self, "render_context"):
                     new_context.render_context = self.render_context
                 return new_context
-        
+
         django.template.context.Context.new = patched_new
-    

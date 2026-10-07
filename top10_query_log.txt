@@ -1,0 +1,51 @@
+2026-10-07 16:45:39,537 - INFO - Running top 100 query (SpecificationRef=68)...
+2026-10-07 16:45:39,624 - INFO - Returned 0 rows in 0.09s
+2026-10-07 16:46:54,496 - INFO - Running top 100 query (SpecificationRef=68)...
+2026-10-07 16:46:54,580 - INFO - Returned 100 rows in 0.08s
+2026-10-07 16:46:54,615 - INFO - Saved top10_spec68_20261007_164654.csv
+2026-10-07 16:46:55,030 - INFO - Saved top10_spec68_20261007_164654.xlsx
+2026-10-07 17:17:53,060 - INFO - Running top 100 query (SpecificationRef=68)...
+2026-10-07 17:17:53,394 - INFO - Returned 100 rows in 0.33s
+2026-10-07 17:17:53,452 - INFO - Saved top10_spec68_20261007_171753.csv
+2026-10-07 17:17:53,817 - INFO - Saved top10_spec68_20261007_171753.xlsx
+2026-10-07 17:20:31,701 - INFO - Running top 100 query (SpecificationRef=68)...
+2026-10-07 17:29:09,620 - INFO - Running top 100 query (SpecificationRef=68)...
+2026-10-07 17:29:09,956 - INFO - Returned 100 rows in 0.34s
+2026-10-07 17:29:10,026 - INFO - Saved top10_spec68_20261007_172910.csv
+2026-10-07 17:29:10,385 - INFO - Saved top10_spec68_20261007_172910.xlsx
+2026-10-07 17:37:58,171 - INFO - Running top 100 query (SpecificationRef=68)...
+2026-10-07 17:37:58,587 - INFO - Returned 100 rows in 0.42s
+2026-10-07 17:37:58,623 - INFO - Saved top10_spec68_20261007_173758.csv
+2026-10-07 17:37:58,944 - INFO - Saved top10_spec68_20261007_173758.xlsx
+2026-10-07 17:41:11,683 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 17:41:12,080 - INFO - Returned 250 rows in 0.40s
+2026-10-07 17:41:12,151 - INFO - Saved top10_spec68_20261007_174112.csv
+2026-10-07 17:41:12,553 - INFO - Saved top10_spec68_20261007_174112.xlsx
+2026-10-07 17:46:05,205 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 17:46:05,664 - INFO - Returned 250 rows in 0.46s
+2026-10-07 17:46:05,731 - INFO - Saved top10_spec68_20261007_174605.csv
+2026-10-07 17:46:06,162 - INFO - Saved top10_spec68_20261007_174605.xlsx
+2026-10-07 17:52:29,617 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 17:52:29,820 - INFO - Returned 48 rows in 0.20s
+2026-10-07 17:52:29,864 - INFO - Saved top10_spec68_20261007_175229.csv
+2026-10-07 17:52:30,161 - INFO - Saved top10_spec68_20261007_175229.xlsx
+2026-10-07 17:55:14,046 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 17:55:14,156 - INFO - Returned 48 rows in 0.11s
+2026-10-07 17:55:14,187 - INFO - Saved top10_spec68_20261007_175514.csv
+2026-10-07 17:55:14,533 - INFO - Saved top10_spec68_20261007_175514.xlsx
+2026-10-07 17:57:13,495 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 17:57:14,085 - INFO - Returned 250 rows in 0.59s
+2026-10-07 17:57:14,127 - INFO - Saved top10_spec68_20261007_175714.csv
+2026-10-07 17:57:14,533 - INFO - Saved top10_spec68_20261007_175714.xlsx
+2026-10-07 18:01:44,073 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 18:01:44,655 - INFO - Returned 250 rows in 0.58s
+2026-10-07 18:01:44,716 - INFO - Saved top10_spec68_20261007_180144.csv
+2026-10-07 18:01:45,260 - INFO - Saved top10_spec68_20261007_180144.xlsx
+2026-10-07 18:04:04,011 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 18:04:04,548 - INFO - Returned 250 rows in 0.54s
+2026-10-07 18:04:04,599 - INFO - Saved top10_spec68_20261007_180404.csv
+2026-10-07 18:04:05,019 - INFO - Saved top10_spec68_20261007_180404.xlsx
+2026-10-07 18:06:29,795 - INFO - Running top 250 query (SpecificationRef=68)...
+2026-10-07 18:06:29,900 - INFO - Returned 103 rows in 0.10s
+2026-10-07 18:06:29,933 - INFO - Saved top10_spec68_20261007_180629.csv
+2026-10-07 18:06:30,261 - INFO - Saved top10_spec68_20261007_180629.xlsx

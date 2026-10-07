@@ -1,0 +1,24 @@
+.
+We create all the tables after connecting to the database (MySQL).
+0. We remove all the 'managed = False' then we make migrations and migrate accordingly. 
+1. We specify the collation of the whole database to utf8mb4 unicode ci
+2. We must change the settings.py (database, static, media, allowed hosts, etc)
+
+Run the following scripts one by one on a regular basis (cron jobs):
+0. sync_data.py
+1. soft_sql_one.sql
+2. soft_sql_two.sql
+3. soft_sql_three.sql
+4. soft_sql_three_point_five.sql
+5. soft_sql_four.sql
+6. soft_sql_five.sql
+7. analysis.sql
+8. best.py 
+
+
+
+We run these only once:
+1. add_averages.py
+2. add_categories.py
+3. add_colors.py
+.
